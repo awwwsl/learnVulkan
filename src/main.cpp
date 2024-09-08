@@ -1,36 +1,41 @@
 #define GLFW_INCLUDE_VULKAN
+
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
+
 #include <GLFW/glfw3.h>
+
 #include <chrono>
 #include <iostream>
+#include <sstream>
 #include <stdio.h>
 #include <thread>
-#include <vulkan/vulkan.h>
+#include <vector>
 
-GLFWwindow *window;
+#include "Models/models.cpp"
+#include "Models/window.cpp"
 
-void initialize() {
-  // glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
-
-  glfwInit();
-  glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-  window = glfwCreateWindow(800, 600, "Learn Vulkan", nullptr, nullptr);
-}
+struct CallbackInfo {
+  void (*callback)(int framePassed, double timePassed);
+  std::chrono::duration<double> interval;
+  double lastTime;
+  int framePassed;
+};
+static inline std::vector<CallbackInfo> callbacks;
 
 void destroy() {
-  glfwDestroyWindow(window);
+  // vkDestroySurfaceKHR(instance, surface, nullptr);
   glfwTerminate();
 }
 
 int main(int argc, char *argv[]) {
-  initialize();
 
-  if (window == NULL) {
-    printf("Failed to create GLFW window\n");
-    glfwTerminate();
-    return -1;
-  }
+  learnVulkan::models::window window;
 
-  std::this_thread::sleep_for(std::chrono::seconds(5));
+  window.windowTitle = "Learn Vulkan yee";
+  window.initialize();
+
+  window.run();
 
   destroy();
   return 0;
