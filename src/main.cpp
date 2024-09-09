@@ -12,7 +12,6 @@
 #include <thread>
 #include <vector>
 
-#include "Models/models.cpp"
 #include "Models/window.cpp"
 
 struct CallbackInfo {
@@ -29,11 +28,18 @@ void destroy() {
 }
 
 int main(int argc, char *argv[]) {
+#ifndef NDEBUG
+  printf("Debug mode\n");
+#else
+  printf("Release mode\n");
+#endif
 
   learnVulkan::models::window window;
 
-  window.windowTitle = "Learn Vulkan yee";
-  window.initialize();
+  window.windowTitle = "Learn Vulkan";
+  if (!window.initialize()) {
+    return 1;
+  }
 
   window.run();
 

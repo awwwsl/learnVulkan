@@ -9,3 +9,4 @@ CMakeToolchain
 [options]
 glfw/*:shared=True
 glfw/*:wayland=True
+
