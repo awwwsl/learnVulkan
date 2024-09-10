@@ -23,13 +23,13 @@
 namespace learnVulkan::models {
 
 class window {
-  struct CallbackInfo {
+  struct LogicUpdateCallbackInfo {
     std::function<void(int framePassed, double timePassed)> callback;
     std::chrono::duration<double> interval;
     double lastTime;
     int framePassed;
   };
-  static inline std::vector<CallbackInfo> callbacks;
+  static inline std::vector<LogicUpdateCallbackInfo> logicUpdateCallbacks;
 
 private:
   GLFWwindow *glfwWindow;
@@ -38,15 +38,17 @@ private:
   VkOffset2D currentPosition;
   VkExtent2D currentSize;
 
+  bool iconified = false;
+
   void updatePerPeriod(
       std::chrono::duration<double> interval,
       std::function<void(int framePassed, double timePassed)> callback) {
-    callbacks.push_back({callback, interval, glfwGetTime(), 0});
+    logicUpdateCallbacks.push_back({callback, interval, glfwGetTime(), 0});
   }
 
   void updateLogic() {
-    for (int i = 0; i < callbacks.size(); i++) {
-      auto &info = callbacks[i];
+    for (int i = 0; i < logicUpdateCallbacks.size(); i++) {
+      auto &info = logicUpdateCallbacks[i];
       double currentTime = glfwGetTime();
       double timePassed = currentTime - info.lastTime;
       if (timePassed >= info.interval.count()) {
@@ -74,7 +76,6 @@ private:
 public:
   window() {}
 
-  const constexpr static VkOffset2D defaultPosition = {0, 0};
   const constexpr static VkExtent2D defaultSize = {1920, 1080};
 
   bool initialize() {
@@ -92,10 +93,10 @@ public:
     const GLFWvidmode *glfwMonitorMode = glfwGetVideoMode(glfwMonitor);
     glfwWindow = glfwCreateWindow(defaultSize.width, defaultSize.height,
                                   windowTitle.c_str(), nullptr, nullptr);
-    glfwSetWindowPos(glfwWindow, defaultPosition.x, defaultPosition.y);
+    glfwSetWindowUserPointer(glfwWindow, this);
 
+    glfwGetWindowPos(glfwWindow, &currentPosition.x, &currentPosition.y);
     currentSize = defaultSize;
-    currentPosition = defaultPosition;
 #ifdef _WIN32
     graphicsBase::Base().AddInstanceExtension(VK_KHR_SURFACE_EXTENSION_NAME);
     graphicsBase::Base().AddInstanceExtension(
@@ -222,7 +223,26 @@ public:
 
     updatePerPeriod(std::chrono::milliseconds(1000), [this](int, double) {
       printf("Position: (%d, %d)\n", currentPosition.x, currentPosition.y);
+      printf("Size: (%d, %d)\n", currentSize.width, currentSize.height);
+      printf("Iconified: %s\n", iconified ? "true" : "false");
     });
+
+    glfwSetWindowPosCallback(glfwWindow, [](GLFWwindow *window, int x, int y) {
+      class window *self = (class window *)glfwGetWindowUserPointer(window);
+      self->currentPosition = {x, y};
+    });
+
+    glfwSetWindowSizeCallback(
+        glfwWindow, [](GLFWwindow *window, int width, int height) {
+          class window *self = (class window *)glfwGetWindowUserPointer(window);
+          self->currentSize = {uint32_t(width), uint32_t(height)};
+        });
+
+    glfwSetWindowIconifyCallback(
+        glfwWindow, [](GLFWwindow *window, int iconify) {
+          class window *self = (class window *)glfwGetWindowUserPointer(window);
+          self->iconified = iconify;
+        });
 
     while (!glfwWindowShouldClose(glfwWindow)) {
       glfwPollEvents();

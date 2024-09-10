@@ -358,13 +358,13 @@ public:
     uint32_t extensionCount;
     std::vector<VkExtensionProperties> availableExtensions;
     if (VkResult result = vkEnumerateDeviceExtensionProperties(
-            physicalDevice, layerName, 0, nullptr)) {
+            physicalDevice, layerName, &extensionCount, nullptr)) {
       layerName
           ? printf("[ graphicsBase ] ERROR: Failed to get the count of device"
                    "extensions!\nLayer name: %s\n",
                    layerName)
-          : printf("[ graphicsBase ] ERROR\nFailed to get "
-                   "the count of instance extensions!\n");
+          : printf("[ graphicsBase ] ERROR: Failed to get "
+                   "the count of device extensions!\n");
       return result;
     }
     if (extensionCount) {
@@ -592,7 +592,7 @@ public:
            uint32_t(VK_VERSION_MAJOR(physicalDeviceProperties.apiVersion)),
            uint32_t(VK_VERSION_MINOR(physicalDeviceProperties.apiVersion)),
            uint32_t(VK_VERSION_PATCH(physicalDeviceProperties.apiVersion)));
-    printf("[ graphicsBase ] INFO: Renderer driver version: %d\n",
+    printf("[ graphicsBase ] INFO: Renderer driver version: %u\n",
            physicalDeviceProperties.driverVersion);
 
     for (auto &i : createDeviceCallbacks)
