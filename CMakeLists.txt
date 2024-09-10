@@ -10,6 +10,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O2")
 find_package(VulkanLoader REQUIRED)
 find_package(VulkanHeaders REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(glm REQUIRED)
 
 add_executable(${PROJECT_NAME} src/main.cpp)
-target_link_libraries(${PROJECT_NAME} glfw Vulkan::Loader)
+target_link_libraries(${PROJECT_NAME} glfw Vulkan::Loader glm::glm)

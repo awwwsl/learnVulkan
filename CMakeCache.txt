@@ -230,6 +230,9 @@ VulkanLoader_DIR:PATH=/home/awwwsl/code/learn/cpp/learnVulkan/build
 //The directory containing a CMake configuration file for glfw3.
 glfw3_DIR:PATH=/home/awwwsl/code/learn/cpp/learnVulkan/build
 
+//The directory containing a CMake configuration file for glm.
+glm_DIR:PATH=/home/awwwsl/code/learn/cpp/learnVulkan/build
+
 //Value Computed by CMake
 learnVulkan_BINARY_DIR:STATIC=/home/awwwsl/code/learn/cpp/learnVulkan
 

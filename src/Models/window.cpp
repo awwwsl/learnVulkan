@@ -2,6 +2,8 @@
 
 #define GLFW_INCLUDE_VULKAN
 
+#define LIMIT_FRAME_RATE true
+
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
@@ -33,8 +35,8 @@ private:
   GLFWwindow *glfwWindow;
   GLFWmonitor *glfwMonitor;
 
-  VkOffset2D position = {0, 0};
-  VkExtent2D size = {1920, 1080};
+  VkOffset2D currentPosition;
+  VkExtent2D currentSize;
 
   void updatePerPeriod(
       std::chrono::duration<double> interval,
@@ -72,6 +74,9 @@ private:
 public:
   window() {}
 
+  const constexpr static VkOffset2D defaultPosition = {0, 0};
+  const constexpr static VkExtent2D defaultSize = {1920, 1080};
+
   bool initialize() {
     // glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
 
@@ -85,8 +90,12 @@ public:
 
     glfwMonitor = glfwGetPrimaryMonitor();
     const GLFWvidmode *glfwMonitorMode = glfwGetVideoMode(glfwMonitor);
-    glfwWindow = glfwCreateWindow(size.width, size.height, windowTitle.c_str(),
-                                  nullptr, nullptr);
+    glfwWindow = glfwCreateWindow(defaultSize.width, defaultSize.height,
+                                  windowTitle.c_str(), nullptr, nullptr);
+    glfwSetWindowPos(glfwWindow, defaultPosition.x, defaultPosition.y);
+
+    currentSize = defaultSize;
+    currentPosition = defaultPosition;
 #ifdef _WIN32
     graphicsBase::Base().AddInstanceExtension(VK_KHR_SURFACE_EXTENSION_NAME);
     graphicsBase::Base().AddInstanceExtension(
@@ -166,6 +175,10 @@ public:
     //     graphicsBase::Singleton().CreateDevice()) {
     //   return false;
     // }
+    //
+
+    if (graphicsBase::Singleton().CreateSwapchain(LIMIT_FRAME_RATE))
+      return false;
 
     return true;
   }
@@ -186,29 +199,29 @@ public:
         glfwSetWindowShouldClose(glfwWindow, GLFW_TRUE);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        position.y += 10 * ((speeding) ? 5 : 1);
+        currentPosition.y += 10 * ((speeding) ? 5 : 1);
         printf("Down\n");
-        MakeWindowWindowed(position, size);
+        MakeWindowWindowed(currentPosition, currentSize);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_UP) == GLFW_PRESS) {
-        position.y -= 10 * ((speeding) ? 5 : 1);
+        currentPosition.y -= 10 * ((speeding) ? 5 : 1);
         printf("Up\n");
-        MakeWindowWindowed(position, size);
+        MakeWindowWindowed(currentPosition, currentSize);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT) == GLFW_PRESS) {
-        position.x -= 10 * ((speeding) ? 5 : 1);
+        currentPosition.x -= 10 * ((speeding) ? 5 : 1);
         printf("Left\n");
-        MakeWindowWindowed(position, size);
+        MakeWindowWindowed(currentPosition, currentSize);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-        position.x += 10 * ((speeding) ? 5 : 1);
+        currentPosition.x += 10 * ((speeding) ? 5 : 1);
         printf("Right\n");
-        MakeWindowWindowed(position, size);
+        MakeWindowWindowed(currentPosition, currentSize);
       }
     });
 
     updatePerPeriod(std::chrono::milliseconds(1000), [this](int, double) {
-      printf("Position: (%d, %d)\n", position.x, position.y);
+      printf("Position: (%d, %d)\n", currentPosition.x, currentPosition.y);
     });
 
     while (!glfwWindowShouldClose(glfwWindow)) {
