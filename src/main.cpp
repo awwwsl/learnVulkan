@@ -14,14 +14,6 @@
 
 #include "Models/window.cpp"
 
-struct CallbackInfo {
-  void (*callback)(int framePassed, double timePassed);
-  std::chrono::duration<double> interval;
-  double lastTime;
-  int framePassed;
-};
-static inline std::vector<CallbackInfo> callbacks;
-
 void destroy() {
   // vkDestroySurfaceKHR(instance, surface, nullptr);
   glfwTerminate();
