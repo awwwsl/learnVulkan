@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-#include "Models/window.cpp"
+#include "Models/window.hpp"
 
 void destroy() {
   // vkDestroySurfaceKHR(instance, surface, nullptr);
