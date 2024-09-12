@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../Models/graphic.hpp"
-#include <vulkan/vulkan.h>
 
 #define DestroyHandleBy(Func)                                                  \
   if (handle) {                                                                \

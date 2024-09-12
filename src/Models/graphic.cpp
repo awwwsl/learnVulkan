@@ -1,22 +1,11 @@
-#include "graphic.hpp"
 #define GLFW_INCLUDE_VULKAN
 
+#include "graphic.hpp"
 #include "../Utils/VkResultThrowable.hpp"
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
-
-#include <GLFW/glfw3.h>
-
 #include <glm/glm.hpp>
-
-#include <cstdint>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <vector>
-
-#include "graphic.hpp"
 
 graphicsBase::~graphicsBase() {
   if (!instance)

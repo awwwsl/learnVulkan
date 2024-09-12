@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Utils/Macros.cpp"
+#include "../Utils/Macros.hpp"
 #include <vulkan/vulkan.h>
 
 class semaphore {

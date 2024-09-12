@@ -1,4 +1,5 @@
 #include "semaphore.hpp"
+#include <stdio.h>
 
 VkResultThrowable semaphore::Create(VkSemaphoreCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;

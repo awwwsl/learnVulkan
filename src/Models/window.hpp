@@ -1,21 +1,14 @@
+#pragma once
+
 #define GLFW_INCLUDE_VULKAN
 
-#include "../Utils/VkResultThrowable.hpp"
 #include "graphic.hpp"
-
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include <GLFW/glfw3.h>
 
 #include <chrono>
 #include <functional>
-#include <iostream>
-#include <sstream>
-#include <stdio.h>
 #include <string>
-#include <thread>
-#include <vector>
 
 namespace learnVulkan::models {
 

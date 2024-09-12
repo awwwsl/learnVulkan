@@ -1,17 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
-
-#include <GLFW/glfw3.h>
-
-#include <chrono>
-#include <iostream>
-#include <sstream>
-#include <stdio.h>
-#include <thread>
-#include <vector>
-
 #include "Models/window.hpp"
 
 void destroy() {

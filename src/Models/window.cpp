@@ -8,6 +8,7 @@
 #include "../Utils/VkResultThrowable.hpp"
 #include "graphic.hpp"
 
+#include <sstream>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 

@@ -1,5 +1,7 @@
 #include "fence.hpp"
 
+#include <stdio.h>
+
 VkResultThrowable fence::Wait() const {
   VkResult result = vkWaitForFences(graphicsBase::Singleton().Device(), 1,
                                     &handle, false, UINT64_MAX);

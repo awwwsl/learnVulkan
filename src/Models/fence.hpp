@@ -1,8 +1,7 @@
 #pragma once
 
-#include "../Utils/Macros.cpp"
+#include "../Utils/Macros.hpp"
 #include "../Utils/VkResultThrowable.hpp"
-#include <vulkan/vulkan.h>
 
 class fence {
   VkFence handle = VK_NULL_HANDLE;
