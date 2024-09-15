@@ -26,7 +26,7 @@ vulkanWrapper::shader::StageCreateInfo(VkShaderStageFlagBits stage,
 VkResultThrowable
 vulkanWrapper::shader::Create(VkShaderModuleCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  VkResult result = vkCreateShaderModule(graphicsBase::Singleton().Device(),
+  VkResult result = vkCreateShaderModule(graphic::Singleton().Device(),
                                          &createInfo, nullptr, &handle);
   if (result)
     printf("[ shader ] ERROR: Failed to create a shader "

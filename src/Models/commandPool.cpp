@@ -9,7 +9,7 @@ vulkanWrapper::commandPool::commandPool() {}
 VkResultThrowable
 vulkanWrapper::commandPool::Create(VkCommandPoolCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  VkResult result = vkCreateCommandPool(graphicsBase::Singleton().Device(),
+  VkResult result = vkCreateCommandPool(graphic::Singleton().Device(),
                                         &createInfo, nullptr, &handle);
   if (result)
     printf("[ commandPool ] ERROR: Failed to create a "
@@ -25,7 +25,7 @@ VkResultThrowable vulkanWrapper::commandPool::AllocateBuffers(
       .commandPool = handle,
       .level = level,
       .commandBufferCount = uint32_t(buffers.size())};
-  VkResult result = vkAllocateCommandBuffers(graphicsBase::Singleton().Device(),
+  VkResult result = vkAllocateCommandBuffers(graphic::Singleton().Device(),
                                              &allocateInfo, buffers.data());
   if (result)
     printf("[ commandPool ] ERROR: Failed to allocate "
@@ -57,8 +57,8 @@ VkResultThrowable vulkanWrapper::commandPool::AllocateBuffers(
 
 void vulkanWrapper::commandPool::FreeBuffers(
     std::vector<VkCommandBuffer> &buffers) const {
-  vkFreeCommandBuffers(graphicsBase::Singleton().Device(), handle,
-                       buffers.size(), buffers.data());
+  vkFreeCommandBuffers(graphic::Singleton().Device(), handle, buffers.size(),
+                       buffers.data());
   buffers.clear();
 }
 //  HACK: Copy

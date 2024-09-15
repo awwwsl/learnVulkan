@@ -12,7 +12,7 @@
 VkResultThrowable
 vulkanWrapper::framebuffer::Create(VkFramebufferCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-  VkResult result = vkCreateFramebuffer(graphicsBase::Singleton().Device(),
+  VkResult result = vkCreateFramebuffer(graphic::Singleton().Device(),
                                         &createInfo, nullptr, &handle);
   if (result)
     printf("[ framebuffer ] ERROR: Failed to create a "

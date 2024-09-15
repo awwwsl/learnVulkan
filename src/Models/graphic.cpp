@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 
-graphicsBase::~graphicsBase() {
+graphic::~graphic() {
   if (!instance)
     return;
   if (device) {
@@ -43,7 +43,7 @@ graphicsBase::~graphicsBase() {
   vkDestroyInstance(instance, nullptr);
 }
 
-VkResultThrowable graphicsBase::GetQueueFamilyIndices(
+VkResultThrowable graphic::GetQueueFamilyIndices(
     VkPhysicalDevice physicalDevice, bool enableGraphicsQueue,
     bool enableComputeQueue, uint32_t (&queueFamilyIndices)[3]) {
   uint32_t queueFamilyCount = 0;
@@ -111,7 +111,7 @@ VkResultThrowable graphicsBase::GetQueueFamilyIndices(
   return VK_SUCCESS;
 }
 
-VkResultThrowable graphicsBase::CreateDebugMessenger() {
+VkResultThrowable graphic::CreateDebugMessenger() {
   constexpr static const PFN_vkDebugUtilsMessengerCallbackEXT
       DebugUtilsMessengerCallback =
           [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -146,8 +146,8 @@ VkResultThrowable graphicsBase::CreateDebugMessenger() {
          "vkCreateDebugUtilsMessengerEXT!\n");
   return VK_RESULT_MAX_ENUM;
 }
-VkResultThrowable graphicsBase::CheckInstanceLayers(const char **layersToCheck,
-                                                    int length) const {
+VkResultThrowable graphic::CheckInstanceLayers(const char **layersToCheck,
+                                               int length) const {
   uint32_t layerCount;
   std::vector<VkLayerProperties> availableLayers;
   VkResultThrowable result =
@@ -190,8 +190,8 @@ VkResultThrowable graphicsBase::CheckInstanceLayers(const char **layersToCheck,
 }
 
 VkResultThrowable
-graphicsBase::CheckInstanceExtensions(const char **extensionsToCheck,
-                                      int length, const char *layerName) const {
+graphic::CheckInstanceExtensions(const char **extensionsToCheck, int length,
+                                 const char *layerName) const {
   uint32_t extensionCount;
   std::vector<VkExtensionProperties> availableExtensions;
   VkResultThrowable result = vkEnumerateInstanceExtensionProperties(
@@ -243,9 +243,9 @@ graphicsBase::CheckInstanceExtensions(const char **extensionsToCheck,
   return VK_SUCCESS;
 }
 
-VkResultThrowable
-graphicsBase::CheckDeviceExtensions(const char **extensionsToCheck, int length,
-                                    const char *layerName) const {
+VkResultThrowable graphic::CheckDeviceExtensions(const char **extensionsToCheck,
+                                                 int length,
+                                                 const char *layerName) const {
   uint32_t extensionCount;
   std::vector<VkExtensionProperties> availableExtensions;
   if (VkResultThrowable result = vkEnumerateDeviceExtensionProperties(
@@ -287,7 +287,7 @@ graphicsBase::CheckDeviceExtensions(const char **extensionsToCheck, int length,
   return VK_SUCCESS;
 }
 
-VkResultThrowable graphicsBase::CreateInstance(VkInstanceCreateFlags flags) {
+VkResultThrowable graphic::CreateInstance(VkInstanceCreateFlags flags) {
 #ifndef NDEBUG
   AddInstanceLayer("VK_LAYER_KHRONOS_validation");
   AddInstanceExtension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
@@ -321,7 +321,7 @@ VkResultThrowable graphicsBase::CreateInstance(VkInstanceCreateFlags flags) {
   return VK_SUCCESS;
 }
 
-VkResultThrowable graphicsBase::GetPhysicalDevices() {
+VkResultThrowable graphic::GetPhysicalDevices() {
   uint32_t deviceCount;
   if (VkResultThrowable result =
           vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr)) {
@@ -345,8 +345,9 @@ VkResultThrowable graphicsBase::GetPhysicalDevices() {
   return result;
 }
 
-VkResultThrowable graphicsBase::DeterminePhysicalDevice(
-    uint32_t deviceIndex, bool enableGraphicsQueue, bool enableComputeQueue) {
+VkResultThrowable graphic::DeterminePhysicalDevice(uint32_t deviceIndex,
+                                                   bool enableGraphicsQueue,
+                                                   bool enableComputeQueue) {
   // 定义一个特殊值用于标记一个队列族索引已被找过但未找到
   static constexpr uint32_t notFound =
       INT32_MAX; //== VK_QUEUE_FAMILY_IGNORED & INT32_MAX
@@ -402,7 +403,7 @@ VkResultThrowable graphicsBase::DeterminePhysicalDevice(
   return VK_SUCCESS;
 }
 
-VkResultThrowable graphicsBase::CreateDevice(VkDeviceCreateFlags flags) {
+VkResultThrowable graphic::CreateDevice(VkDeviceCreateFlags flags) {
   float queuePriority = 1.f;
   VkDeviceQueueCreateInfo queueCreateInfos[3] = {
       {.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -475,7 +476,7 @@ VkResultThrowable graphicsBase::CreateDevice(VkDeviceCreateFlags flags) {
   return VK_SUCCESS;
 }
 
-VkResultThrowable graphicsBase::GetSurfaceFormats() {
+VkResultThrowable graphic::GetSurfaceFormats() {
   uint32_t surfaceFormatCount;
   if (VkResultThrowable result = vkGetPhysicalDeviceSurfaceFormatsKHR(
           physicalDevice, surface, &surfaceFormatCount, nullptr)) {
@@ -499,8 +500,7 @@ VkResultThrowable graphicsBase::GetSurfaceFormats() {
   return result;
 }
 
-VkResultThrowable
-graphicsBase::SetSurfaceFormat(VkSurfaceFormatKHR surfaceFormat) {
+VkResultThrowable graphic::SetSurfaceFormat(VkSurfaceFormatKHR surfaceFormat) {
 
   bool formatIsAvailable = false;
   if (!surfaceFormat.format) {
@@ -531,7 +531,7 @@ graphicsBase::SetSurfaceFormat(VkSurfaceFormatKHR surfaceFormat) {
   return VK_SUCCESS;
 }
 
-VkResultThrowable graphicsBase::CreateSwapchain_Internal() {
+VkResultThrowable graphic::CreateSwapchain_Internal() {
   if (VkResultThrowable result = vkCreateSwapchainKHR(
           device, &swapchainCreateInfo, nullptr, &swapchain)) {
     printf("[ graphicsBase ] ERROR: Failed to create a "
@@ -579,9 +579,8 @@ VkResultThrowable graphicsBase::CreateSwapchain_Internal() {
   return VK_SUCCESS;
 }
 
-VkResultThrowable
-graphicsBase::CreateSwapchain(bool limitFrameRate,
-                              VkSwapchainCreateFlagsKHR flags) {
+VkResultThrowable graphic::CreateSwapchain(bool limitFrameRate,
+                                           VkSwapchainCreateFlagsKHR flags) {
   // VkSurfaceCapabilitiesKHR相关的参数
   VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
   if (VkResultThrowable result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
@@ -698,7 +697,7 @@ graphicsBase::CreateSwapchain(bool limitFrameRate,
   return VK_SUCCESS;
 }
 
-VkResultThrowable graphicsBase::RecreateSwapchain() {
+VkResultThrowable graphic::RecreateSwapchain() {
   VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
   if (VkResultThrowable result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
           physicalDevice, surface, &surfaceCapabilities)) {
@@ -744,8 +743,7 @@ VkResultThrowable graphicsBase::RecreateSwapchain() {
   return VK_SUCCESS;
 }
 
-VkResultThrowable
-graphicsBase::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
+VkResultThrowable graphic::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
   // 销毁旧交换链（若存在）
   if (swapchainCreateInfo.oldSwapchain &&
       swapchainCreateInfo.oldSwapchain != swapchain) {
@@ -772,7 +770,7 @@ graphicsBase::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
 }
 
 // 该函数用于等待逻辑设备空闲
-VkResultThrowable graphicsBase::WaitIdle() const {
+VkResultThrowable graphic::WaitIdle() const {
   VkResultThrowable result = vkDeviceWaitIdle(device);
   if (result)
     printf("[ graphicsBase ] ERROR: Failed to wait for the "
@@ -781,7 +779,7 @@ VkResultThrowable graphicsBase::WaitIdle() const {
   return result;
 }
 // 该函数用于重建逻辑设备
-VkResultThrowable graphicsBase::RecreateDevice(VkDeviceCreateFlags flags) {
+VkResultThrowable graphic::RecreateDevice(VkDeviceCreateFlags flags) {
   if (VkResultThrowable result = WaitIdle())
     return result;
   if (swapchain) {
@@ -812,8 +810,8 @@ VkResultThrowable graphicsBase::RecreateDevice(VkDeviceCreateFlags flags) {
 
 // 该函数用于将命令缓冲区提交到用于图形的队列
 VkResultThrowable
-graphicsBase::SubmitCommandBuffer_Graphics(VkSubmitInfo &submitInfo,
-                                           VkFence fence) const {
+graphic::SubmitCommandBuffer_Graphics(VkSubmitInfo &submitInfo,
+                                      VkFence fence) const {
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   VkResult result = vkQueueSubmit(queue_graphics, 1, &submitInfo, fence);
   if (result)
@@ -823,7 +821,7 @@ graphicsBase::SubmitCommandBuffer_Graphics(VkSubmitInfo &submitInfo,
   return result;
 }
 // 该函数用于在渲染循环中将命令缓冲区提交到图形队列的常见情形
-VkResultThrowable graphicsBase::SubmitCommandBuffer_Graphics(
+VkResultThrowable graphic::SubmitCommandBuffer_Graphics(
     VkCommandBuffer commandBuffer, VkSemaphore semaphore_imageIsAvailable,
     VkSemaphore semaphore_renderFinished, VkFence fence,
     VkPipelineStageFlags waitDstStage_imageIsAvailable) const {
@@ -840,16 +838,15 @@ VkResultThrowable graphicsBase::SubmitCommandBuffer_Graphics(
 }
 // 该函数用于将命令缓冲区提交到用于图形的队列，且只使用栅栏的常见情形
 inline VkResultThrowable
-graphicsBase::SubmitCommandBuffer_Graphics(VkCommandBuffer commandBuffer,
-                                           VkFence fence) const {
+graphic::SubmitCommandBuffer_Graphics(VkCommandBuffer commandBuffer,
+                                      VkFence fence) const {
   VkSubmitInfo submitInfo = {.commandBufferCount = 1,
                              .pCommandBuffers = &commandBuffer};
   return SubmitCommandBuffer_Graphics(submitInfo, fence);
 }
 // 该函数用于将命令缓冲区提交到用于计算的队列
-VkResultThrowable
-graphicsBase::SubmitCommandBuffer_Compute(VkSubmitInfo &submitInfo,
-                                          VkFence fence) const {
+VkResultThrowable graphic::SubmitCommandBuffer_Compute(VkSubmitInfo &submitInfo,
+                                                       VkFence fence) const {
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   VkResult result = vkQueueSubmit(queue_compute, 1, &submitInfo, fence);
   if (result)
@@ -860,14 +857,14 @@ graphicsBase::SubmitCommandBuffer_Compute(VkSubmitInfo &submitInfo,
 }
 // 该函数用于将命令缓冲区提交到用于计算的队列，且只使用栅栏的常见情形
 inline VkResultThrowable
-graphicsBase::SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer,
-                                          VkFence fence) const {
+graphic::SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer,
+                                     VkFence fence) const {
   VkSubmitInfo submitInfo = {.commandBufferCount = 1,
                              .pCommandBuffers = &commandBuffer};
   return SubmitCommandBuffer_Compute(submitInfo, fence);
 }
 
-VkResultThrowable graphicsBase::PresentImage(VkPresentInfoKHR &presentInfo) {
+VkResultThrowable graphic::PresentImage(VkPresentInfoKHR &presentInfo) {
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
   switch (VkResult result =
               vkQueuePresentKHR(queue_presentation, &presentInfo)) {
@@ -884,8 +881,7 @@ VkResultThrowable graphicsBase::PresentImage(VkPresentInfoKHR &presentInfo) {
   }
 }
 // 该函数用于在渲染循环中呈现图像的常见情形
-VkResultThrowable
-graphicsBase ::PresentImage(VkSemaphore semaphore_renderFinished) {
+VkResultThrowable graphic ::PresentImage(VkSemaphore semaphore_renderFinished) {
   VkPresentInfoKHR presentInfo = {.swapchainCount = 1,
                                   .pSwapchains = &swapchain,
                                   .pImageIndices = &currentImageIndex};
@@ -895,11 +891,11 @@ graphicsBase ::PresentImage(VkSemaphore semaphore_renderFinished) {
   return PresentImage(presentInfo);
 }
 
-const renderPassWithFramebuffers &graphicsBase::CreateRpwf_Screen() {
+const renderPassWithFramebuffers &graphic::CreateRpwf_Screen() {
   static renderPassWithFramebuffers rpwf;
 
   VkAttachmentDescription attachmentDescription = {
-      .format = graphicsBase::Singleton().SwapchainCreateInfo().imageFormat,
+      .format = graphic::Singleton().SwapchainCreateInfo().imageFormat,
       .samples = VK_SAMPLE_COUNT_1_BIT,
       .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
       .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -929,18 +925,17 @@ const renderPassWithFramebuffers &graphicsBase::CreateRpwf_Screen() {
   rpwf.renderPass.Create(renderPassCreateInfo);
 
   auto CreateFramebuffers = [] {
-    rpwf.framebuffers.resize(graphicsBase::Singleton().SwapchainImageCount());
+    rpwf.framebuffers.resize(graphic::Singleton().SwapchainImageCount());
     const VkExtent2D &windowSize =
-        graphicsBase::Singleton().SwapchainCreateInfo().imageExtent;
+        graphic::Singleton().SwapchainCreateInfo().imageExtent;
     VkFramebufferCreateInfo framebufferCreateInfo = {
         .renderPass = rpwf.renderPass,
         .attachmentCount = 1,
         .width = windowSize.width,
         .height = windowSize.height,
         .layers = 1};
-    for (size_t i = 0; i < graphicsBase::Singleton().SwapchainImageCount();
-         i++) {
-      VkImageView attachment = graphicsBase::Singleton().SwapchainImageView(i);
+    for (size_t i = 0; i < graphic::Singleton().SwapchainImageCount(); i++) {
+      VkImageView attachment = graphic::Singleton().SwapchainImageView(i);
       framebufferCreateInfo.pAttachments = &attachment;
       rpwf.framebuffers[i].Create(framebufferCreateInfo);
     }
@@ -952,13 +947,13 @@ const renderPassWithFramebuffers &graphicsBase::CreateRpwf_Screen() {
   CreateFramebuffers();
 
   ExecuteOnce(rpwf); // 防止再次调用本函数时，重复添加回调函数
-  graphicsBase::Singleton().AddCreateSwapchainCallback(CreateFramebuffers);
-  graphicsBase::Singleton().AddDestroySwapchainCallback(DestroyFramebuffers);
+  graphic::Singleton().AddCreateSwapchainCallback(CreateFramebuffers);
+  graphic::Singleton().AddDestroySwapchainCallback(DestroyFramebuffers);
   return rpwf;
 }
 
-void graphicsBase::Terminate() {
-  this->~graphicsBase();
+void graphic::Terminate() {
+  this->~graphic();
   instance = VK_NULL_HANDLE;
   physicalDevice = VK_NULL_HANDLE;
   device = VK_NULL_HANDLE;
@@ -971,7 +966,7 @@ void graphicsBase::Terminate() {
 }
 
 // 单例
-graphicsBase &graphicsBase::Singleton() {
-  static graphicsBase singleton;
+graphic &graphic::Singleton() {
+  static graphic singleton;
   return singleton;
 }

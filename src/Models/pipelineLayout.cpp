@@ -7,7 +7,7 @@
 VkResultThrowable
 vulkanWrapper::pipelineLayout::Create(VkPipelineLayoutCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  VkResult result = vkCreatePipelineLayout(graphicsBase::Singleton().Device(),
+  VkResult result = vkCreatePipelineLayout(graphic::Singleton().Device(),
                                            &createInfo, nullptr, &handle);
   if (result)
     printf("[ pipelineLayout ] ERROR: Failed to create a "

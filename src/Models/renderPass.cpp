@@ -33,7 +33,7 @@ void vulkanWrapper::renderPass::CmdEnd(VkCommandBuffer commandBuffer) const {
 VkResultThrowable
 vulkanWrapper::renderPass::Create(VkRenderPassCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-  VkResult result = vkCreateRenderPass(graphicsBase::Singleton().Device(),
+  VkResult result = vkCreateRenderPass(graphic::Singleton().Device(),
                                        &createInfo, nullptr, &handle);
   if (result)
     printf("[ renderPass ] ERROR: Failed to create a "

@@ -63,33 +63,31 @@ bool window::initialize() {
   }
 
   for (size_t i = 0; i < extensionCount; i++) {
-    graphicsBase::Singleton().AddInstanceExtension(extensionNames[i]);
+    graphic::Singleton().AddInstanceExtension(extensionNames[i]);
   }
 #endif
-  graphicsBase::Singleton().AddDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-  graphicsBase::Singleton().UseLatestApiVersion();
-  if (graphicsBase::Singleton().CreateInstance()) {
+  graphic::Singleton().AddDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+  graphic::Singleton().UseLatestApiVersion();
+  if (graphic::Singleton().CreateInstance()) {
     printf("[ window ] Failed to create Vulkan instance\n");
     return false;
   }
 
   VkSurfaceKHR surface = VK_NULL_HANDLE;
-  if (VkResultThrowable result =
-          glfwCreateWindowSurface(graphicsBase::Singleton().Instance(),
-                                  glfwWindow, nullptr, &surface)) {
+  if (VkResultThrowable result = glfwCreateWindowSurface(
+          graphic::Singleton().Instance(), glfwWindow, nullptr, &surface)) {
     printf("[ window ] ERROR: Failed to create a "
            "window surface!\nError code: %d\n",
            int32_t(result));
     glfwTerminate();
     return false;
   }
-  graphicsBase::Singleton().Surface(surface);
+  graphic::Singleton().Surface(surface);
 
-  if (!graphicsBase::Singleton().GetPhysicalDevices()) {
-    for (int i = 0;
-         i < graphicsBase::Singleton().AvailablePhysicalDeviceCount(); i++) {
-      auto physicalDevice =
-          graphicsBase::Singleton().AvailablePhysicalDevice(i);
+  if (!graphic::Singleton().GetPhysicalDevices()) {
+    for (int i = 0; i < graphic::Singleton().AvailablePhysicalDeviceCount();
+         i++) {
+      auto physicalDevice = graphic::Singleton().AvailablePhysicalDevice(i);
       VkPhysicalDeviceProperties properties;
       vkGetPhysicalDeviceProperties(physicalDevice, &properties);
       printf("[ window ] Device %d: %s\n", i, properties.deviceName);
@@ -102,17 +100,16 @@ bool window::initialize() {
     scanf("%d", &deviceIndex);
 
     if (deviceIndex < 0 ||
-        deviceIndex >=
-            graphicsBase::Singleton().AvailablePhysicalDeviceCount()) {
+        deviceIndex >= graphic::Singleton().AvailablePhysicalDeviceCount()) {
       printf("[ window ] Invalid device index\n");
       continue;
     }
-    if (graphicsBase::Singleton().DeterminePhysicalDevice(deviceIndex, true,
-                                                          false)) {
+    if (graphic::Singleton().DeterminePhysicalDevice(deviceIndex, true,
+                                                     false)) {
       printf("[ window ] Device not qualified for vulkan graphics queue\n");
       continue;
     }
-    if (graphicsBase::Singleton().CreateDevice()) {
+    if (graphic::Singleton().CreateDevice()) {
       printf("[ window ] Failed to create logical device\n");
       continue;
     }
@@ -127,7 +124,7 @@ bool window::initialize() {
   // }
   //
 
-  if (graphicsBase::Singleton().CreateSwapchain(LIMIT_FRAME_RATE))
+  if (graphic::Singleton().CreateSwapchain(LIMIT_FRAME_RATE))
     return false;
 
   return true;
@@ -135,7 +132,7 @@ bool window::initialize() {
 
 const renderPassWithFramebuffers &RenderPassAndFramebuffers() {
   static const renderPassWithFramebuffers &rpwf =
-      graphicsBase::Singleton().CreateRpwf_Screen();
+      graphic::Singleton().CreateRpwf_Screen();
   return rpwf;
 }
 
@@ -153,7 +150,7 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
       frag.StageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT)};
   auto Create = [&] {
     const VkExtent2D &windowSize =
-        graphicsBase::Singleton().SwapchainCreateInfo().imageExtent;
+        graphic::Singleton().SwapchainCreateInfo().imageExtent;
     graphicsPipelineCreateInfoPack pipelineCiPack;
     pipelineCiPack.createInfo.layout = layout;
     pipelineCiPack.createInfo.renderPass =
@@ -173,8 +170,8 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
     pipeline.Create(pipelineCiPack);
   };
   auto Destroy = [&] { pipeline.~pipeline(); };
-  graphicsBase::Singleton().AddCreateSwapchainCallback(Create);
-  graphicsBase::Singleton().AddDestroySwapchainCallback(Destroy);
+  graphic::Singleton().AddCreateSwapchainCallback(Create);
+  graphic::Singleton().AddDestroySwapchainCallback(Destroy);
   Create();
 }
 
@@ -229,8 +226,8 @@ void window::run() {
       glfwWindow, [](GLFWwindow *window, int width, int height) {
         class window *self = (class window *)glfwGetWindowUserPointer(window);
         self->currentSize = {uint32_t(width), uint32_t(height)};
-        graphicsBase::Singleton().WaitIdle();
-        graphicsBase::Singleton().RecreateSwapchain();
+        graphic::Singleton().WaitIdle();
+        graphic::Singleton().RecreateSwapchain();
       });
 
   glfwSetWindowIconifyCallback(glfwWindow, [](GLFWwindow *window, int iconify) {
@@ -254,7 +251,7 @@ void window::run() {
 
   vulkanWrapper::commandBuffer commandBuffer;
   vulkanWrapper::commandPool commandPool(
-      graphicsBase::Singleton().QueueFamilyIndex_Graphics(),
+      graphic::Singleton().QueueFamilyIndex_Graphics(),
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
   commandPool.AllocateBuffers(commandBuffer);
 
@@ -269,10 +266,10 @@ void window::run() {
     }
 
     VkExtent2D windowSize =
-        graphicsBase::Singleton().SwapchainCreateInfo().imageExtent;
+        graphic::Singleton().SwapchainCreateInfo().imageExtent;
 
-    graphicsBase::Singleton().SwapImage(semaphore_imageAvailable);
-    uint32_t i = graphicsBase::Singleton().CurrentImageIndex();
+    graphic::Singleton().SwapImage(semaphore_imageAvailable);
+    uint32_t i = graphic::Singleton().CurrentImageIndex();
 
     commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     renderPass.CmdBegin(commandBuffer, framebuffers[i], {{}, windowSize},
@@ -284,10 +281,10 @@ void window::run() {
     renderPass.CmdEnd(commandBuffer);
     commandBuffer.End();
 
-    graphicsBase::Singleton().SubmitCommandBuffer_Graphics(
+    graphic::Singleton().SubmitCommandBuffer_Graphics(
         commandBuffer, semaphore_imageAvailable, semaphore_renderFinished,
         fence);
-    graphicsBase::Singleton().PresentImage(semaphore_renderFinished);
+    graphic::Singleton().PresentImage(semaphore_renderFinished);
 
     glfwPollEvents();
     updateLogic();
@@ -314,9 +311,9 @@ void window::updateLogic() {
 }
 
 void window::TerminateWindow() {
-  graphicsBase::Singleton().WaitIdle();
-  graphicsBase::Singleton().ClearDestroySwapchainCallbacks();
-  graphicsBase::Singleton().ClearDestroyDeviceCallbacks();
+  graphic::Singleton().WaitIdle();
+  graphic::Singleton().ClearDestroySwapchainCallbacks();
+  graphic::Singleton().ClearDestroyDeviceCallbacks();
   // graphicsBase::Singleton().Terminate();
   glfwDestroyWindow(glfwWindow);
 }

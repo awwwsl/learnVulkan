@@ -6,9 +6,9 @@
 VkResultThrowable
 vulkanWrapper::pipeline::Create(VkGraphicsPipelineCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-  VkResult result = vkCreateGraphicsPipelines(
-      graphicsBase::Singleton().Device(), VK_NULL_HANDLE, 1, &createInfo,
-      nullptr, &handle);
+  VkResult result =
+      vkCreateGraphicsPipelines(graphic::Singleton().Device(), VK_NULL_HANDLE,
+                                1, &createInfo, nullptr, &handle);
   if (result)
     printf("[ pipeline ] ERROR: Failed to create a "
            "graphics pipeline!\nError code: %d\n",
@@ -18,9 +18,9 @@ vulkanWrapper::pipeline::Create(VkGraphicsPipelineCreateInfo &createInfo) {
 VkResultThrowable
 vulkanWrapper::pipeline::Create(VkComputePipelineCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-  VkResult result = vkCreateComputePipelines(graphicsBase::Singleton().Device(),
-                                             VK_NULL_HANDLE, 1, &createInfo,
-                                             nullptr, &handle);
+  VkResult result =
+      vkCreateComputePipelines(graphic::Singleton().Device(), VK_NULL_HANDLE, 1,
+                               &createInfo, nullptr, &handle);
   if (result)
     printf("[ pipeline ] ERROR: Failed to create a compute "
            "pipeline!\nError code: %d\n",

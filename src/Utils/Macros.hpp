@@ -4,7 +4,7 @@
 #define DestroyHandleBy(Func, name)                                            \
   if (handle) {                                                                \
     printf("[ %s ] DEBUG: Destroying handle: %p\n", name, (void *)handle);     \
-    Func(graphicsBase::Singleton().Device(), handle, nullptr);                 \
+    Func(graphic::Singleton().Device(), handle, nullptr);                      \
     handle = VK_NULL_HANDLE;                                                   \
   }
 #else

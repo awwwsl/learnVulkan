@@ -8,7 +8,7 @@
 VkResultThrowable
 vulkanWrapper::semaphore::Create(VkSemaphoreCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-  VkResult result = vkCreateSemaphore(graphicsBase::Singleton().Device(),
+  VkResult result = vkCreateSemaphore(graphic::Singleton().Device(),
                                       &createInfo, nullptr, &handle);
   if (result)
     printf("[ semaphore ] ERROR: Failed to create a "

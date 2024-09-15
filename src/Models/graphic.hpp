@@ -16,7 +16,7 @@ struct renderPassWithFramebuffers {
   std::vector<vulkanWrapper::framebuffer> framebuffers;
 };
 
-class graphicsBase {
+class graphic {
   uint32_t apiVersion = VK_API_VERSION_1_0;
   VkInstance instance;
   VkPhysicalDevice physicalDevice;
@@ -55,10 +55,10 @@ class graphicsBase {
   VkDebugUtilsMessengerEXT debugMessenger;
 
   //--------------------
-  graphicsBase() = default;
-  graphicsBase(graphicsBase &&) = delete;
-  graphicsBase operator&(const graphicsBase &) = delete;
-  ~graphicsBase();
+  graphic() = default;
+  graphic(graphic &&) = delete;
+  graphic operator&(const graphic &) = delete;
+  ~graphic();
   // Non const函数
   VkResultThrowable GetQueueFamilyIndices(VkPhysicalDevice physicalDevice,
                                           bool enableGraphicsQueue,
@@ -294,5 +294,5 @@ public:
 
   void Terminate();
   // 单例
-  static graphicsBase &Singleton();
+  static graphic &Singleton();
 };

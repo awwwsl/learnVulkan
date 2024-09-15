@@ -5,16 +5,15 @@
 #include <vulkan/vulkan_core.h>
 
 VkResultThrowable vulkanWrapper::fence::Wait() const {
-  VkResult result = vkWaitForFences(graphicsBase::Singleton().Device(), 1,
-                                    &handle, false, UINT64_MAX);
+  VkResult result = vkWaitForFences(graphic::Singleton().Device(), 1, &handle,
+                                    false, UINT64_MAX);
   if (result)
     printf("[ fence ] ERROR: Failed to wait for the fence!\nError code: %d\n",
            int32_t(result));
   return result;
 }
 VkResultThrowable vulkanWrapper::fence::Reset() const {
-  VkResult result =
-      vkResetFences(graphicsBase::Singleton().Device(), 1, &handle);
+  VkResult result = vkResetFences(graphic::Singleton().Device(), 1, &handle);
   if (result)
     printf("[ fence ] ERROR: Failed to reset the fence!\nError code: %d\n",
            int32_t(result));
@@ -27,8 +26,7 @@ VkResultThrowable vulkanWrapper::fence::WaitAndReset() const {
   return result;
 }
 VkResultThrowable vulkanWrapper::fence::Status() const {
-  VkResult result =
-      vkGetFenceStatus(graphicsBase::Singleton().Device(), handle);
+  VkResult result = vkGetFenceStatus(graphic::Singleton().Device(), handle);
   if (result <
       0) // vkGetFenceStatus(...)成功时有两种结果，所以不能仅仅判断result是否非0
     printf("[ fence ] ERROR: Failed to get the status of "
@@ -39,8 +37,8 @@ VkResultThrowable vulkanWrapper::fence::Status() const {
 // Non-const Function
 VkResultThrowable vulkanWrapper::fence::Create(VkFenceCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-  VkResult result = vkCreateFence(graphicsBase::Singleton().Device(),
-                                  &createInfo, nullptr, &handle);
+  VkResult result = vkCreateFence(graphic::Singleton().Device(), &createInfo,
+                                  nullptr, &handle);
   if (result)
     printf("[ fence ] ERROR: Failed to create a fence!\nError code: %d\n",
            int32_t(result));
