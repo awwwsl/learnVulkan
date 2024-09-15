@@ -13,15 +13,22 @@ graphicsBase::~graphicsBase() {
   if (device) {
     WaitIdle();
     if (swapchain) {
-      for (auto &i : destroySwapchainCallbacks)
+      for (auto &i : destroySwapchainCallbacks) {
+#ifndef NDEBUG
+        printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+#endif
         i();
+      }
       for (auto &i : swapchainImageViews)
         if (i)
           vkDestroyImageView(device, i, nullptr);
       vkDestroySwapchainKHR(device, swapchain, nullptr);
     }
-    for (auto &i : destroyDeviceCallbacks)
+    for (auto &i : destroyDeviceCallbacks) {
+      printf("[ graphicsBase ] DEBUG: Executing destroyDeviceCallbacks\n");
       i();
+    }
+
     vkDestroyDevice(device, nullptr);
   }
   if (surface)
@@ -459,8 +466,12 @@ VkResultThrowable graphicsBase::CreateDevice(VkDeviceCreateFlags flags) {
   printf("[ graphicsBase ] INFO: Renderer driver version: %u\n",
          physicalDeviceProperties.driverVersion);
 
-  for (auto &i : createDeviceCallbacks)
+  for (auto &i : createDeviceCallbacks) {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Executing createDeviceCallbacks\n");
+#endif
     i();
+  }
   return VK_SUCCESS;
 }
 
@@ -678,8 +689,12 @@ graphicsBase::CreateSwapchain(bool limitFrameRate,
   if (VkResultThrowable result = CreateSwapchain_Internal())
     return result;
   // 执行回调函数
-  for (auto &i : createSwapchainCallbacks)
+  for (auto &i : createSwapchainCallbacks) {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Executing createSwapchainCallbacks\n");
+#endif
     i();
+  }
   return VK_SUCCESS;
 }
 
@@ -707,8 +722,12 @@ VkResultThrowable graphicsBase::RecreateSwapchain() {
     return result;
   }
   // 销毁旧交换链相关对象
-  for (auto &i : destroySwapchainCallbacks)
+  for (auto &i : destroySwapchainCallbacks) {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+#endif
     i();
+  }
   for (auto &i : swapchainImageViews)
     if (i)
       vkDestroyImageView(device, i, nullptr);
@@ -716,8 +735,39 @@ VkResultThrowable graphicsBase::RecreateSwapchain() {
   // 创建新交换链及与之相关的对象
   if (VkResultThrowable result = CreateSwapchain_Internal())
     return result;
-  for (auto &i : createSwapchainCallbacks)
+  for (auto &i : createSwapchainCallbacks) {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Executing createSwapchainCallbacks\n");
+#endif
     i();
+  }
+  return VK_SUCCESS;
+}
+
+VkResultThrowable
+graphicsBase::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
+  // 销毁旧交换链（若存在）
+  if (swapchainCreateInfo.oldSwapchain &&
+      swapchainCreateInfo.oldSwapchain != swapchain) {
+    vkDestroySwapchainKHR(device, swapchainCreateInfo.oldSwapchain, nullptr);
+    swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+  }
+  // 获取交换链图像索引
+  while (VkResult result = vkAcquireNextImageKHR(
+             device, swapchain, UINT64_MAX, semaphore_imageIsAvailable,
+             VK_NULL_HANDLE, &currentImageIndex))
+    switch (result) {
+    case VK_SUBOPTIMAL_KHR:
+    case VK_ERROR_OUT_OF_DATE_KHR:
+      if (VkResult result = RecreateSwapchain())
+        return result;
+      break; // 注意重建交换链后仍需要获取图像，通过break递归，再次执行while的条件判定语句
+    default:
+      printf("[ graphicsBase ] ERROR: Failed to acquire the "
+             "next image!\nError code: %d\n",
+             int32_t(result));
+      return result;
+    }
   return VK_SUCCESS;
 }
 
@@ -735,8 +785,12 @@ VkResultThrowable graphicsBase::RecreateDevice(VkDeviceCreateFlags flags) {
   if (VkResultThrowable result = WaitIdle())
     return result;
   if (swapchain) {
-    for (auto &i : destroySwapchainCallbacks)
+    for (auto &i : destroySwapchainCallbacks) {
+#ifndef NDEBUG
+      printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+#endif
       i();
+    }
     for (auto &i : swapchainImageViews)
       if (i)
         vkDestroyImageView(device, i, nullptr);
@@ -745,11 +799,162 @@ VkResultThrowable graphicsBase::RecreateDevice(VkDeviceCreateFlags flags) {
     swapchain = VK_NULL_HANDLE;
     swapchainCreateInfo = {};
   }
-  for (auto &i : destroySwapchainCallbacks)
+  for (auto &i : destroySwapchainCallbacks) {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+#endif
     i();
+  }
   if (device)
     vkDestroyDevice(device, nullptr), device = VK_NULL_HANDLE;
   return CreateDevice(flags);
+}
+
+// 该函数用于将命令缓冲区提交到用于图形的队列
+VkResultThrowable
+graphicsBase::SubmitCommandBuffer_Graphics(VkSubmitInfo &submitInfo,
+                                           VkFence fence) const {
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  VkResult result = vkQueueSubmit(queue_graphics, 1, &submitInfo, fence);
+  if (result)
+    printf("[ graphicsBase ] ERROR:Failed to submit the "
+           "command buffer!\nError code: %d\n",
+           int32_t(result));
+  return result;
+}
+// 该函数用于在渲染循环中将命令缓冲区提交到图形队列的常见情形
+VkResultThrowable graphicsBase::SubmitCommandBuffer_Graphics(
+    VkCommandBuffer commandBuffer, VkSemaphore semaphore_imageIsAvailable,
+    VkSemaphore semaphore_renderFinished, VkFence fence,
+    VkPipelineStageFlags waitDstStage_imageIsAvailable) const {
+  VkSubmitInfo submitInfo = {.commandBufferCount = 1,
+                             .pCommandBuffers = &commandBuffer};
+  if (semaphore_imageIsAvailable)
+    submitInfo.waitSemaphoreCount = 1,
+    submitInfo.pWaitSemaphores = &semaphore_imageIsAvailable,
+    submitInfo.pWaitDstStageMask = &waitDstStage_imageIsAvailable;
+  if (semaphore_renderFinished)
+    submitInfo.signalSemaphoreCount = 1,
+    submitInfo.pSignalSemaphores = &semaphore_renderFinished;
+  return SubmitCommandBuffer_Graphics(submitInfo, fence);
+}
+// 该函数用于将命令缓冲区提交到用于图形的队列，且只使用栅栏的常见情形
+inline VkResultThrowable
+graphicsBase::SubmitCommandBuffer_Graphics(VkCommandBuffer commandBuffer,
+                                           VkFence fence) const {
+  VkSubmitInfo submitInfo = {.commandBufferCount = 1,
+                             .pCommandBuffers = &commandBuffer};
+  return SubmitCommandBuffer_Graphics(submitInfo, fence);
+}
+// 该函数用于将命令缓冲区提交到用于计算的队列
+VkResultThrowable
+graphicsBase::SubmitCommandBuffer_Compute(VkSubmitInfo &submitInfo,
+                                          VkFence fence) const {
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  VkResult result = vkQueueSubmit(queue_compute, 1, &submitInfo, fence);
+  if (result)
+    printf("[ graphicsBase ] ERROR: Failed to submit the "
+           "command buffer!\nError code: %d\n",
+           int32_t(result));
+  return result;
+}
+// 该函数用于将命令缓冲区提交到用于计算的队列，且只使用栅栏的常见情形
+inline VkResultThrowable
+graphicsBase::SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer,
+                                          VkFence fence) const {
+  VkSubmitInfo submitInfo = {.commandBufferCount = 1,
+                             .pCommandBuffers = &commandBuffer};
+  return SubmitCommandBuffer_Compute(submitInfo, fence);
+}
+
+VkResultThrowable graphicsBase::PresentImage(VkPresentInfoKHR &presentInfo) {
+  presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  switch (VkResult result =
+              vkQueuePresentKHR(queue_presentation, &presentInfo)) {
+  case VK_SUCCESS:
+    return VK_SUCCESS;
+  case VK_SUBOPTIMAL_KHR:
+  case VK_ERROR_OUT_OF_DATE_KHR:
+    return RecreateSwapchain(); // HACK: potential 1 frame loss
+  default:
+    printf("[ graphicsBase ] ERROR: Failed to queue the "
+           "image for presentation!\nError code: %d\n",
+           int32_t(result));
+    return result;
+  }
+}
+// 该函数用于在渲染循环中呈现图像的常见情形
+VkResultThrowable
+graphicsBase ::PresentImage(VkSemaphore semaphore_renderFinished) {
+  VkPresentInfoKHR presentInfo = {.swapchainCount = 1,
+                                  .pSwapchains = &swapchain,
+                                  .pImageIndices = &currentImageIndex};
+  if (semaphore_renderFinished)
+    presentInfo.waitSemaphoreCount = 1,
+    presentInfo.pWaitSemaphores = &semaphore_renderFinished;
+  return PresentImage(presentInfo);
+}
+
+const renderPassWithFramebuffers &graphicsBase::CreateRpwf_Screen() {
+  static renderPassWithFramebuffers rpwf;
+
+  VkAttachmentDescription attachmentDescription = {
+      .format = graphicsBase::Singleton().SwapchainCreateInfo().imageFormat,
+      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+      .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+      .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR};
+  VkAttachmentReference attachmentReference = {
+      0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+  VkSubpassDescription subpassDescription = {
+      .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+      .colorAttachmentCount = 1,
+      .pColorAttachments = &attachmentReference};
+  VkSubpassDependency subpassDependency = {
+      .srcSubpass = VK_SUBPASS_EXTERNAL,
+      .dstSubpass = 0,
+      .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      .srcAccessMask = 0,
+      .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT};
+  VkRenderPassCreateInfo renderPassCreateInfo = {
+      .attachmentCount = 1,
+      .pAttachments = &attachmentDescription,
+      .subpassCount = 1,
+      .pSubpasses = &subpassDescription,
+      .dependencyCount = 1,
+      .pDependencies = &subpassDependency};
+  rpwf.renderPass.Create(renderPassCreateInfo);
+
+  auto CreateFramebuffers = [] {
+    rpwf.framebuffers.resize(graphicsBase::Singleton().SwapchainImageCount());
+    const VkExtent2D &windowSize =
+        graphicsBase::Singleton().SwapchainCreateInfo().imageExtent;
+    VkFramebufferCreateInfo framebufferCreateInfo = {
+        .renderPass = rpwf.renderPass,
+        .attachmentCount = 1,
+        .width = windowSize.width,
+        .height = windowSize.height,
+        .layers = 1};
+    for (size_t i = 0; i < graphicsBase::Singleton().SwapchainImageCount();
+         i++) {
+      VkImageView attachment = graphicsBase::Singleton().SwapchainImageView(i);
+      framebufferCreateInfo.pAttachments = &attachment;
+      rpwf.framebuffers[i].Create(framebufferCreateInfo);
+    }
+  };
+  auto DestroyFramebuffers = [] {
+    if (rpwf.framebuffers.size())
+      rpwf.framebuffers.clear();
+  };
+  CreateFramebuffers();
+
+  ExecuteOnce(rpwf); // 防止再次调用本函数时，重复添加回调函数
+  graphicsBase::Singleton().AddCreateSwapchainCallback(CreateFramebuffers);
+  graphicsBase::Singleton().AddDestroySwapchainCallback(DestroyFramebuffers);
+  return rpwf;
 }
 
 void graphicsBase::Terminate() {

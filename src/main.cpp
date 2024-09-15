@@ -1,4 +1,5 @@
 #define GLFW_INCLUDE_VULKAN
+#define VK_RESULT_THROW
 
 #include "Models/window.hpp"
 
@@ -23,6 +24,7 @@ int main(int argc, char *argv[]) {
 
   window.run();
 
-  destroy();
+  glfwTerminate();
+
   return 0;
 }

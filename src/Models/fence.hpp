@@ -3,6 +3,8 @@
 #include "../Utils/Macros.hpp"
 #include "../Utils/VkResultThrowable.hpp"
 
+namespace vulkanWrapper {
+
 class fence {
   VkFence handle = VK_NULL_HANDLE;
 
@@ -12,8 +14,8 @@ public:
 
   // 默认构造器创建未置位的栅栏
   inline fence(VkFenceCreateFlags flags = 0) { Create(flags); }
-  inline fence(fence &&other) noexcept { MoveHandle; }
-  inline ~fence() { DestroyHandleBy(vkDestroyFence); }
+  fence(fence &&other) noexcept;
+  ~fence();
 
   // Getter
   inline DefineHandleTypeOperator;
@@ -32,3 +34,5 @@ public:
     return Create(createInfo);
   }
 };
+
+} // namespace vulkanWrapper

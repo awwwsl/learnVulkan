@@ -1,8 +1,10 @@
 #include "fence.hpp"
+#include "graphic.hpp"
 
 #include <stdio.h>
+#include <vulkan/vulkan_core.h>
 
-VkResultThrowable fence::Wait() const {
+VkResultThrowable vulkanWrapper::fence::Wait() const {
   VkResult result = vkWaitForFences(graphicsBase::Singleton().Device(), 1,
                                     &handle, false, UINT64_MAX);
   if (result)
@@ -10,7 +12,7 @@ VkResultThrowable fence::Wait() const {
            int32_t(result));
   return result;
 }
-VkResultThrowable fence::Reset() const {
+VkResultThrowable vulkanWrapper::fence::Reset() const {
   VkResult result =
       vkResetFences(graphicsBase::Singleton().Device(), 1, &handle);
   if (result)
@@ -19,12 +21,12 @@ VkResultThrowable fence::Reset() const {
   return result;
 }
 // 因为“等待后立刻重置”的情形经常出现，定义此函数
-VkResultThrowable fence::WaitAndReset() const {
+VkResultThrowable vulkanWrapper::fence::WaitAndReset() const {
   VkResult result = Wait();
   result || (result = Reset());
   return result;
 }
-VkResultThrowable fence::Status() const {
+VkResultThrowable vulkanWrapper::fence::Status() const {
   VkResult result =
       vkGetFenceStatus(graphicsBase::Singleton().Device(), handle);
   if (result <
@@ -35,7 +37,7 @@ VkResultThrowable fence::Status() const {
   return result;
 }
 // Non-const Function
-VkResultThrowable fence::Create(VkFenceCreateInfo &createInfo) {
+VkResultThrowable vulkanWrapper::fence::Create(VkFenceCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   VkResult result = vkCreateFence(graphicsBase::Singleton().Device(),
                                   &createInfo, nullptr, &handle);
@@ -44,3 +46,6 @@ VkResultThrowable fence::Create(VkFenceCreateInfo &createInfo) {
            int32_t(result));
   return result;
 };
+
+vulkanWrapper::fence::fence(fence &&other) noexcept { MoveHandle; }
+vulkanWrapper::fence::~fence() { DestroyHandleBy(vkDestroyFence, "fence"); }

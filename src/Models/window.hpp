@@ -2,8 +2,6 @@
 
 #define GLFW_INCLUDE_VULKAN
 
-#include "graphic.hpp"
-
 #include <GLFW/glfw3.h>
 
 #include <chrono>
@@ -25,9 +23,6 @@ private:
   GLFWwindow *glfwWindow;
   GLFWmonitor *glfwMonitor;
 
-  VkOffset2D currentPosition;
-  VkExtent2D currentSize;
-
   bool iconified = false;
 
   inline void updatePerPeriod(
@@ -48,6 +43,8 @@ private:
     glfwSetWindowMonitor(glfwWindow, nullptr, position.x, position.y,
                          size.width, size.height, pMode->refreshRate);
   }
+  inline void TerminateWindow();
+
   std::function<void(int framePassed, double timePassed)> callback;
 
 public:
@@ -56,6 +53,9 @@ public:
   std::string windowTitle = "Untitled";
 
   const constexpr static VkExtent2D defaultSize = {1920, 1080};
+
+  VkOffset2D currentPosition;
+  VkExtent2D currentSize;
 
   bool initialize();
   void run();

@@ -15,9 +15,19 @@ set(SOURCES
     src/Models/graphic.cpp
     src/Models/fence.cpp
     src/Models/semaphore.cpp
+    src/Models/commandBuffer.cpp
+    src/Models/commandPool.cpp
+    src/Models/pipelineLayout.cpp
+    src/Models/pipeline.cpp
+    src/Models/renderPass.cpp
+    src/Models/graphicsPipelineCreateInfoPack.cpp
+    src/Models/shader.cpp
+    src/Models/framebuffer.cpp
 )
 
 include_directories(src)
+include_directories(src/Utils)
+include_directories(src/Models)
 
 find_package(VulkanLoader REQUIRED)
 find_package(VulkanHeaders REQUIRED)

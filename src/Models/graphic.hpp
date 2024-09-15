@@ -1,10 +1,20 @@
 #pragma once
 
+#include <functional>
 #define GLFW_INCLUDE_VULKAN
 
 #include "../Utils/VkResultThrowable.hpp"
 
+#include "framebuffer.hpp"
+#include "renderPass.hpp"
+
+#include <stdio.h>
 #include <vector>
+
+struct renderPassWithFramebuffers {
+  vulkanWrapper::renderPass renderPass;
+  std::vector<vulkanWrapper::framebuffer> framebuffers;
+};
 
 class graphicsBase {
   uint32_t apiVersion = VK_API_VERSION_1_0;
@@ -18,6 +28,9 @@ class graphicsBase {
   uint32_t queueFamilyIndex_graphics = VK_QUEUE_FAMILY_IGNORED;
   uint32_t queueFamilyIndex_presentation = VK_QUEUE_FAMILY_IGNORED;
   uint32_t queueFamilyIndex_compute = VK_QUEUE_FAMILY_IGNORED;
+
+  uint32_t currentImageIndex = 0;
+
   VkQueue queue_graphics;
   VkQueue queue_presentation;
   VkQueue queue_compute;
@@ -34,10 +47,10 @@ class graphicsBase {
   std::vector<const char *> instanceExtensions;
   std::vector<const char *> deviceExtensions;
 
-  std::vector<void (*)()> createSwapchainCallbacks;
-  std::vector<void (*)()> destroySwapchainCallbacks;
-  std::vector<void (*)()> createDeviceCallbacks;
-  std::vector<void (*)()> destroyDeviceCallbacks;
+  std::vector<std::function<void()>> createSwapchainCallbacks;
+  std::vector<std::function<void()>> destroySwapchainCallbacks;
+  std::vector<std::function<void()>> createDeviceCallbacks;
+  std::vector<std::function<void()>> destroyDeviceCallbacks;
 
   VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -61,6 +74,7 @@ public:
 
   // Getter
   inline uint32_t ApiVersion() const { return apiVersion; }
+  inline uint32_t CurrentImageIndex() const { return currentImageIndex; }
   inline VkInstance Instance() const { return instance; }
   inline VkPhysicalDevice PhysicalDevice() const { return physicalDevice; }
   inline const VkPhysicalDeviceProperties &PhysicalDeviceProperties() const {
@@ -176,6 +190,46 @@ public:
 
   VkResultThrowable RecreateSwapchain();
 
+  // 该函数用于获取交换链图像索引到currentImageIndex，以及在需要重建交换链时调用RecreateSwapchain()、重建交换链后销毁旧交换链
+  VkResultThrowable SwapImage(VkSemaphore semaphore_imageIsAvailable);
+
+  // 该函数用于将命令缓冲区提交到用于图形的队列
+  VkResultThrowable
+  SubmitCommandBuffer_Graphics(VkSubmitInfo &submitInfo,
+                               VkFence fence = VK_NULL_HANDLE) const;
+
+  // 该函数用于在渲染循环中将命令缓冲区提交到图形队列的常见情形
+  VkResultThrowable SubmitCommandBuffer_Graphics(
+      VkCommandBuffer commandBuffer,
+      VkSemaphore semaphore_imageIsAvailable = VK_NULL_HANDLE,
+      VkSemaphore semaphore_renderFinished = VK_NULL_HANDLE,
+      VkFence fence = VK_NULL_HANDLE,
+      VkPipelineStageFlags waitDstStage_imageIsAvailable =
+          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT) const;
+
+  // 该函数用于将命令缓冲区提交到用于图形的队列，且只使用栅栏的常见情形
+  VkResultThrowable
+  SubmitCommandBuffer_Graphics(VkCommandBuffer commandBuffer,
+                               VkFence fence = VK_NULL_HANDLE) const;
+
+  // 该函数用于将命令缓冲区提交到用于计算的队列
+  VkResultThrowable
+  SubmitCommandBuffer_Compute(VkSubmitInfo &submitInfo,
+                              VkFence fence = VK_NULL_HANDLE) const;
+
+  // 该函数用于将命令缓冲区提交到用于计算的队列，且只使用栅栏的常见情形
+  VkResultThrowable
+  SubmitCommandBuffer_Compute(VkCommandBuffer commandBuffer,
+                              VkFence fence = VK_NULL_HANDLE) const;
+
+  // 该函数用于在渲染循环中呈现图像的常见情形
+  VkResultThrowable
+  PresentImage(VkSemaphore semaphore_renderFinished = VK_NULL_HANDLE);
+
+  VkResultThrowable PresentImage(VkPresentInfoKHR &presentInfo);
+
+  const renderPassWithFramebuffers &CreateRpwf_Screen();
+
   inline void InstanceLayers(const std::vector<const char *> &layerNames) {
     instanceLayers = layerNames;
   }
@@ -188,20 +242,49 @@ public:
     deviceExtensions = extensionNames;
   }
 
-  inline void AddCreateSwapchainCallback(void (*callback)()) {
-    createSwapchainCallbacks.push_back(callback);
+  inline void AddCreateSwapchainCallback(std::function<void()> callback) {
+    AddCallback(createSwapchainCallbacks, callback, "CreateSwapchainCallback");
   }
 
-  inline void AddDestroySwapchainCallback(void (*callback)()) {
-    destroySwapchainCallbacks.push_back(callback);
+  inline void AddDestroySwapchainCallback(std::function<void()> callback) {
+    AddCallback(destroySwapchainCallbacks, callback,
+                "DestroySwapchainCallback");
   }
 
-  inline void AddCreateDeviceCallback(void (*callback)()) {
-    createDeviceCallbacks.push_back(callback);
+  inline void AddCreateDeviceCallback(std::function<void()> callback) {
+    AddCallback(createDeviceCallbacks, callback, "CreateDeviceCallback");
   }
 
-  inline void AddDestroyDeviceCallback(void (*callback)()) {
-    destroyDeviceCallbacks.push_back(callback);
+  inline void AddDestroyDeviceCallback(std::function<void()> callback) {
+    AddCallback(destroyDeviceCallbacks, callback, "DestroyDeviceCallback");
+  }
+
+  inline void ClearCreateSwapchainCallbacks() {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Clearing createSwapchainCallbacks\n");
+#endif
+    createSwapchainCallbacks.clear();
+  }
+
+  inline void ClearDestroySwapchainCallbacks() {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Clearing destroySwapchainCallbacks\n");
+#endif
+    destroySwapchainCallbacks.clear();
+  }
+
+  inline void ClearCreateDeviceCallbacks() {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Clearing createDeviceCallbacks\n");
+#endif
+    createDeviceCallbacks.clear();
+  }
+
+  inline void ClearDestroyDeviceCallbacks() {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Clearing destroyDeviceCallbacks\n");
+#endif
+    destroyDeviceCallbacks.clear();
   }
 
   // 该函数用于等待逻辑设备空闲

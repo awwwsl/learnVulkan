@@ -1,7 +1,10 @@
 #pragma once
 
 #include "../Utils/Macros.hpp"
+#include "../Utils/VkResultThrowable.hpp"
 #include <vulkan/vulkan.h>
+
+namespace vulkanWrapper {
 
 class semaphore {
   VkSemaphore handle = VK_NULL_HANDLE;
@@ -12,8 +15,8 @@ public:
 
   // 默认构造器创建未置位的信号量
   inline semaphore(/*VkSemaphoreCreateFlags flags*/) { Create(); }
-  inline semaphore(semaphore &&other) noexcept { MoveHandle; }
-  inline ~semaphore() { DestroyHandleBy(vkDestroySemaphore); }
+  semaphore(semaphore &&other) noexcept;
+  ~semaphore();
 
   // Getter
   DefineHandleTypeOperator;
@@ -26,3 +29,5 @@ public:
     return Create(createInfo);
   }
 };
+
+} // namespace vulkanWrapper

@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef VKRESULTTHROWABLE_HPP
-#define VKRESULTTHROWABLE_HPP
-
 #include <vulkan/vulkan.h>
 
 // #define VK_RESULT_THROW
@@ -15,7 +12,7 @@ class VkResultThrowable {
 public:
   static void (*callback_throw)(VkResult);
 
-  explicit VkResultThrowable(VkResult result) : result(result) {}
+  VkResultThrowable(VkResult result) : result(result) {}
 
   VkResultThrowable(VkResultThrowable &&other) noexcept : result(other.result) {
     other.result = VK_SUCCESS;
@@ -43,7 +40,7 @@ inline void (*VkResultThrowable::callback_throw)(VkResult) = nullptr;
 struct [[nodiscard]] VkResultThrowable {
   VkResult result;
 
-  explicit VkResultThrowable(VkResult result) : result(result) {}
+  VkResultThrowable(VkResult result) : result(result) {}
 
   operator VkResult() const { return result; }
 };
@@ -57,5 +54,3 @@ struct [[nodiscard]] VkResultThrowable {
 using VkResultThrowable = VkResult;
 
 #endif // VK_RESULT_THROW or VK_RESULT_NODISCARD
-
-#endif // VKRESULTTHROWABLE_HPP

@@ -1,12 +1,19 @@
 #pragma once
 
-#include "../Models/graphic.hpp"
-
-#define DestroyHandleBy(Func)                                                  \
+#ifndef NDEBUG
+#define DestroyHandleBy(Func, name)                                            \
+  if (handle) {                                                                \
+    printf("[ %s ] DEBUG: Destroying handle: %p\n", name, (void *)handle);     \
+    Func(graphicsBase::Singleton().Device(), handle, nullptr);                 \
+    handle = VK_NULL_HANDLE;                                                   \
+  }
+#else
+#define DestroyHandleBy(Func, name)                                            \
   if (handle) {                                                                \
     Func(graphicsBase::Singleton().Device(), handle, nullptr);                 \
     handle = VK_NULL_HANDLE;                                                   \
   }
+#endif
 
 #define MoveHandle                                                             \
   handle = other.handle;                                                       \
@@ -24,12 +31,8 @@
 #define DefineHandleTypeOperator                                               \
   operator decltype(handle)() const { return handle; }
 
-#define DefineHandleTypeOperatorHeader operator decltype(handle)() const;
-
 #define DefineAddressFunction                                                  \
   const decltype(handle) *Address() const { return &handle; }
-
-#define DefineAddressFunctionHeader const decltype(handle) *Address() const;
 
 #define ExecuteOnce(...)                                                       \
   {                                                                            \
@@ -38,3 +41,16 @@
       return __VA_ARGS__;                                                      \
     executed = true;                                                           \
   }
+
+#ifndef NDEBUG
+#define AddCallback(container, callback, containerName)                        \
+  if (callback) {                                                              \
+    container.push_back(callback);                                             \
+  }
+#else
+#define AddCallback(container, callback, containerName)                        \
+  printf("[ %s ] DEBUG: Adding callback\n", containerName);                    \
+  if (callback) {                                                              \
+    container.push_back(callback);                                             \
+  }
+#endif
