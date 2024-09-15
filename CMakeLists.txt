@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.15)
 
 project(learnVulkan)
 
-set(ENV{LANGUAGE} "zh_Hentai:zh_CN.UTF_8:zh_CN:C")
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -15,12 +13,14 @@ set(SOURCES
     src/Utils/VkResultThrowable.cpp
 
     src/Vulkan/buffer.cpp
+    src/Vulkan/bufferMemory.cpp
     src/Vulkan/bufferView.cpp
     src/Vulkan/commandBuffer.cpp
     src/Vulkan/commandPool.cpp
-    src/Vulkan/deviceBuffer.cpp
+    src/Vulkan/deviceLocalBuffer.cpp
     src/Vulkan/deviceMemory.cpp
     src/Vulkan/fence.cpp
+    src/Vulkan/formatInfo.cpp
     src/Vulkan/framebuffer.cpp
     src/Vulkan/graphicsPipelineCreateInfoPack.cpp
     src/Vulkan/image.cpp
@@ -30,6 +30,7 @@ set(SOURCES
     src/Vulkan/renderPass.cpp
     src/Vulkan/semaphore.cpp
     src/Vulkan/shader.cpp
+    src/Vulkan/stagingBuffer.cpp
 
     src/Models/graphic.cpp
     src/Models/graphicPlus.cpp

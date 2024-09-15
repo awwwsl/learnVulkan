@@ -10,19 +10,16 @@ graphicPlus::graphicPlus() { impl = &graphicPlusImpl::Singleton(); }
 graphicPlus::~graphicPlus() {}
 
 // Getter
-inline const VkFormatProperties &
-graphicPlus::FormatProperties(VkFormat format) const {
+const VkFormatProperties &graphicPlus::FormatProperties(VkFormat format) const {
   return impl->FormatProperties(format);
 }
-inline const vulkanWrapper::commandPool &
-graphicPlus::CommandPool_Graphics() const {
+const vulkanWrapper::commandPool &graphicPlus::CommandPool_Graphics() const {
   return impl->commandPool_graphics;
 }
-inline const vulkanWrapper::commandPool &
-graphicPlus::CommandPool_Compute() const {
+const vulkanWrapper::commandPool &graphicPlus::CommandPool_Compute() const {
   return impl->commandPool_compute;
 }
-inline const vulkanWrapper::commandBuffer &
+const vulkanWrapper::commandBuffer &
 graphicPlus::CommandBuffer_Transfer() const {
   return impl->commandBuffer_transfer;
 }

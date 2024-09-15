@@ -21,12 +21,23 @@
 #include "window.hpp"
 
 #include <sstream>
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
 
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <vulkan/vulkan.h>
 
 namespace learnVulkan {
+
+struct vertex {
+  glm::vec2 position;
+  glm::vec4 color;
+};
+
+vertex vertices[] = {
+    {{0.f, -0.5f}, {1.f, 0.f, 0.f, 1.f}},
+    {{0.5f, 0.5f}, {0.f, 1.f, 0.f, 1.f}},
+    {{-0.5f, 0.5f}, {0.f, 0.f, 1.f, 1.f}},
+};
 
 window::window() {}
 
@@ -34,7 +45,7 @@ bool window::initialize() {
   // glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
 
   if (!glfwInit()) {
-    printf("[ window ] Failed to initialize GLFW\n");
+    printf("[ window ] FATAL: Failed to initialize GLFW\n");
     return false;
   }
 
@@ -59,7 +70,7 @@ bool window::initialize() {
   extensionNames = glfwGetRequiredInstanceExtensions(&extensionCount);
 
   if (!extensionNames) {
-    printf("[ window ] Vulkan is not available on this machine!\n");
+    printf("[ window ] FATAL: Vulkan is not available on this machine!\n");
     glfwTerminate();
     return false;
   }
@@ -71,7 +82,7 @@ bool window::initialize() {
   graphic::Singleton().AddDeviceExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
   graphic::Singleton().UseLatestApiVersion();
   if (graphic::Singleton().CreateInstance()) {
-    printf("[ window ] Failed to create Vulkan instance\n");
+    printf("[ window ] ERROR: Failed to create Vulkan instance\n");
     return false;
   }
 
@@ -92,27 +103,28 @@ bool window::initialize() {
       auto physicalDevice = graphic::Singleton().AvailablePhysicalDevice(i);
       VkPhysicalDeviceProperties properties;
       vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-      printf("[ window ] Device %d: %s\n", i, properties.deviceName);
+      printf("[ window ] HINT: Device %d: %s\n", i, properties.deviceName);
     }
   }
 
   while (true) {
-    printf("[ window ] Please select a device: ");
+    printf("[ window ] HINT: Please select a device: ");
     int deviceIndex = 0;
     scanf("%d", &deviceIndex);
 
     if (deviceIndex < 0 ||
         deviceIndex >= graphic::Singleton().AvailablePhysicalDeviceCount()) {
-      printf("[ window ] Invalid device index\n");
+      printf("[ window ] ERROR: Invalid device index\n");
       continue;
     }
     if (graphic::Singleton().DeterminePhysicalDevice(deviceIndex, true,
                                                      false)) {
-      printf("[ window ] Device not qualified for vulkan graphics queue\n");
+      printf(
+          "[ window ] ERROR: Device not qualified for vulkan graphics queue\n");
       continue;
     }
     if (graphic::Singleton().CreateDevice()) {
-      printf("[ window ] Failed to create logical device\n");
+      printf("[ window ] ERROR: Failed to create logical device\n");
       continue;
     }
 

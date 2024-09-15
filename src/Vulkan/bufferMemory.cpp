@@ -1,4 +1,4 @@
-#include "deviceBuffer.hpp"
+#include "bufferMemory.hpp"
 
 #include "../Models/graphic.hpp"
 

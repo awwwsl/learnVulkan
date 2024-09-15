@@ -1,3 +1,5 @@
+#pragma once
+
 #include "../Utils/Macros.hpp"
 #include "../Utils/VkResultThrowable.hpp"
 
