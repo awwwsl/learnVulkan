@@ -8,7 +8,7 @@
 #include <functional>
 #include <string>
 
-namespace learnVulkan::models {
+namespace learnVulkan {
 
 class window {
   struct LogicUpdateCallbackInfo {
@@ -61,4 +61,4 @@ public:
   void run();
 };
 
-} // namespace learnVulkan::models
+} // namespace learnVulkan

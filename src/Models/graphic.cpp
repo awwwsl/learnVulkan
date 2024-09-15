@@ -2,6 +2,7 @@
 
 #include "graphic.hpp"
 #include "../Utils/VkResultThrowable.hpp"
+#include "graphicPlus.hpp"
 
 #include <glm/glm.hpp>
 #include <stdio.h>
@@ -952,6 +953,45 @@ const renderPassWithFramebuffers &graphic::CreateRpwf_Screen() {
   return rpwf;
 }
 
+void graphic::CmdTransferImageOwnership(VkCommandBuffer commandBuffer) const {
+  VkImageMemoryBarrier imageMemoryBarrier_g2p = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+      .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      .dstAccessMask = 0,
+      .oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+      .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+      .srcQueueFamilyIndex = queueFamilyIndex_graphics,
+      .dstQueueFamilyIndex = queueFamilyIndex_presentation,
+      .image = swapchainImages[currentImageIndex],
+      .subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
+  vkCmdPipelineBarrier(commandBuffer,
+                       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0,
+                       nullptr, 1, &imageMemoryBarrier_g2p);
+}
+VkResultThrowable graphic::SubmitCommandBuffer_Presentation(
+    VkCommandBuffer commandBuffer, VkSemaphore semaphore_renderingIsOver,
+    VkSemaphore semaphore_ownershipIsTransfered, VkFence fence) const {
+  static constexpr VkPipelineStageFlags waitDstStage =
+      VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+  VkSubmitInfo submitInfo = {.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                             .commandBufferCount = 1,
+                             .pCommandBuffers = &commandBuffer};
+  if (semaphore_renderingIsOver)
+    submitInfo.waitSemaphoreCount = 1,
+    submitInfo.pWaitSemaphores = &semaphore_renderingIsOver,
+    submitInfo.pWaitDstStageMask = &waitDstStage;
+  if (semaphore_ownershipIsTransfered)
+    submitInfo.signalSemaphoreCount = 1,
+    submitInfo.pSignalSemaphores = &semaphore_ownershipIsTransfered;
+  VkResult result = vkQueueSubmit(queue_presentation, 1, &submitInfo, fence);
+  if (result)
+    printf("[ graphicsBase ] ERROR: Failed to submit the "
+           "presentation command buffer!\nError code: %d\n",
+           int32_t(result));
+  return result;
+}
+
 void graphic::Terminate() {
   this->~graphic();
   instance = VK_NULL_HANDLE;
@@ -970,3 +1010,5 @@ graphic &graphic::Singleton() {
   static graphic singleton;
   return singleton;
 }
+
+graphicPlus &graphic::Plus() { return graphicPlus::Singleton(); }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdio>
+
 #ifndef NDEBUG
 #define DestroyHandleBy(Func, name)                                            \
   if (handle) {                                                                \

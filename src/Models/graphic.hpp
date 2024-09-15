@@ -16,6 +16,8 @@ struct renderPassWithFramebuffers {
   std::vector<vulkanWrapper::framebuffer> framebuffers;
 };
 
+class graphicPlus;
+
 class graphic {
   uint32_t apiVersion = VK_API_VERSION_1_0;
   VkInstance instance;
@@ -230,6 +232,14 @@ public:
 
   const renderPassWithFramebuffers &CreateRpwf_Screen();
 
+  void CmdTransferImageOwnership(VkCommandBuffer commandBuffer) const;
+
+  VkResultThrowable SubmitCommandBuffer_Presentation(
+      VkCommandBuffer commandBuffer,
+      VkSemaphore semaphore_renderingIsOver = VK_NULL_HANDLE,
+      VkSemaphore semaphore_ownershipIsTransfered = VK_NULL_HANDLE,
+      VkFence fence = VK_NULL_HANDLE) const;
+
   inline void InstanceLayers(const std::vector<const char *> &layerNames) {
     instanceLayers = layerNames;
   }
@@ -295,4 +305,5 @@ public:
   void Terminate();
   // 单例
   static graphic &Singleton();
+  static graphicPlus &Plus();
 };

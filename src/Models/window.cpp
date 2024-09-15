@@ -24,7 +24,7 @@
 
 #include <GLFW/glfw3.h>
 
-namespace learnVulkan::models {
+namespace learnVulkan {
 
 window::window() {}
 
@@ -318,4 +318,4 @@ void window::TerminateWindow() {
   glfwDestroyWindow(glfwWindow);
 }
 
-} // namespace learnVulkan::models
+} // namespace learnVulkan

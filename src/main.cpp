@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
   printf("Release mode\n");
 #endif
 
-  learnVulkan::models::window window;
+  learnVulkan::window window;
 
   window.windowTitle = "Learn Vulkan";
   if (!window.initialize()) {
