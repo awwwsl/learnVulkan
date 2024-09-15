@@ -1,6 +1,6 @@
 #include "image.hpp"
 
-#include "graphic.hpp"
+#include "../Models/graphic.hpp"
 
 vulkanWrapper::image::image() = default;
 vulkanWrapper::image::image(VkImageCreateInfo &createInfo) {

@@ -1,4 +1,3 @@
-#include "framebuffer.hpp"
 #define GLFW_INCLUDE_VULKAN
 
 #ifndef LIMIT_FRAME_RATE
@@ -7,15 +6,18 @@
 
 #include "../Utils/VkResultThrowable.hpp"
 
-#include "commandBuffer.hpp"
-#include "commandPool.hpp"
-#include "fence.hpp"
+#include "../Vulkan/commandBuffer.hpp"
+#include "../Vulkan/commandPool.hpp"
+#include "../Vulkan/fence.hpp"
+#include "../Vulkan/framebuffer.hpp"
+#include "../Vulkan/graphicsPipelineCreateInfoPack.hpp"
+#include "../Vulkan/pipeline.hpp"
+#include "../Vulkan/pipelineLayout.hpp"
+#include "../Vulkan/semaphore.hpp"
+#include "../Vulkan/shader.hpp"
+
 #include "graphic.hpp"
-#include "graphicsPipelineCreateInfoPack.hpp"
-#include "pipeline.hpp"
-#include "pipelineLayout.hpp"
-#include "semaphore.hpp"
-#include "shader.hpp"
+#include "graphicPlus.hpp"
 #include "window.hpp"
 
 #include <sstream>

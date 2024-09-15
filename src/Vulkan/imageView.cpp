@@ -1,5 +1,6 @@
 #include "imageView.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
 
 vulkanWrapper::imageView::imageView() = default;
 vulkanWrapper::imageView::imageView(VkImageViewCreateInfo &createInfo) {

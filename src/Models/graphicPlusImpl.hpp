@@ -1,7 +1,8 @@
 #pragma once
 
-#include "commandBuffer.hpp"
-#include "commandPool.hpp"
+#include "../Vulkan/commandBuffer.hpp"
+#include "../Vulkan/commandPool.hpp"
+
 #include "graphic.hpp"
 #include "graphicPlus.hpp"
 

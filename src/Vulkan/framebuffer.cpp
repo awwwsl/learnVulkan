@@ -5,7 +5,8 @@
 #include "../Utils/VkResultThrowable.hpp"
 
 #include "framebuffer.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
 
 #include <stdio.h>
 

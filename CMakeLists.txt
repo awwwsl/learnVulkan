@@ -14,25 +14,26 @@ set(SOURCES
     src/main.cpp
     src/Utils/VkResultThrowable.cpp
 
-    src/Models/buffer.cpp
-    src/Models/bufferView.cpp
-    src/Models/commandBuffer.cpp
-    src/Models/commandPool.cpp
-    src/Models/deviceBuffer.cpp
-    src/Models/deviceMemory.cpp
-    src/Models/fence.cpp
-    src/Models/framebuffer.cpp
+    src/Vulkan/buffer.cpp
+    src/Vulkan/bufferView.cpp
+    src/Vulkan/commandBuffer.cpp
+    src/Vulkan/commandPool.cpp
+    src/Vulkan/deviceBuffer.cpp
+    src/Vulkan/deviceMemory.cpp
+    src/Vulkan/fence.cpp
+    src/Vulkan/framebuffer.cpp
+    src/Vulkan/graphicsPipelineCreateInfoPack.cpp
+    src/Vulkan/image.cpp
+    src/Vulkan/imageView.cpp
+    src/Vulkan/pipeline.cpp
+    src/Vulkan/pipelineLayout.cpp
+    src/Vulkan/renderPass.cpp
+    src/Vulkan/semaphore.cpp
+    src/Vulkan/shader.cpp
+
     src/Models/graphic.cpp
     src/Models/graphicPlus.cpp
     src/Models/graphicPlusImpl.cpp
-    src/Models/graphicsPipelineCreateInfoPack.cpp
-    src/Models/image.cpp
-    src/Models/imageView.cpp
-    src/Models/pipeline.cpp
-    src/Models/pipelineLayout.cpp
-    src/Models/renderPass.cpp
-    src/Models/semaphore.cpp
-    src/Models/shader.cpp
     src/Models/window.cpp
 )
 

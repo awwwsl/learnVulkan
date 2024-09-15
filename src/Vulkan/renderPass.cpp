@@ -1,5 +1,7 @@
 #include "renderPass.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
+
 #include <stdio.h>
 
 void vulkanWrapper::renderPass::CmdBegin(

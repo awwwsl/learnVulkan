@@ -1,5 +1,6 @@
 #include "fence.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
 
 #include <stdio.h>
 #include <vulkan/vulkan_core.h>

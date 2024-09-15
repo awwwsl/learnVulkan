@@ -1,5 +1,6 @@
 #include "buffer.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
 
 #include "../Utils/Macros.hpp"
 #include "../Utils/VkResultThrowable.hpp"

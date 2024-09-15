@@ -1,5 +1,7 @@
 #include "commandPool.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
+
 #include <stdio.h>
 #include <vector>
 #include <vulkan/vulkan_core.h>

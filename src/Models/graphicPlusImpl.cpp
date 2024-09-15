@@ -1,8 +1,9 @@
-#include "fence.hpp"
-
 #include "graphic.hpp"
+
 #include "graphicPlus.hpp"
 #include "graphicPlusImpl.hpp"
+
+#include "../Vulkan/fence.hpp"
 
 graphicPlusImpl::graphicPlusImpl() {
   auto Initialize = [this] {

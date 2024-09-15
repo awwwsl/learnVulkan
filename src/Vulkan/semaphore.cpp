@@ -1,7 +1,8 @@
 #define GLFW_INCLUDE_VULKAN
 
 #include "semaphore.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
 
 #include <stdio.h>
 

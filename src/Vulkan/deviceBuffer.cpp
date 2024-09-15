@@ -1,6 +1,6 @@
-#include "graphic.hpp"
-
 #include "deviceBuffer.hpp"
+
+#include "../Models/graphic.hpp"
 
 vulkanWrapper::bufferMemory::bufferMemory() = default;
 vulkanWrapper::bufferMemory::bufferMemory(

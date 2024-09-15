@@ -5,8 +5,8 @@
 
 #include "../Utils/VkResultThrowable.hpp"
 
-#include "framebuffer.hpp"
-#include "renderPass.hpp"
+#include "../Vulkan/framebuffer.hpp"
+#include "../Vulkan/renderPass.hpp"
 
 #include <stdio.h>
 #include <vector>

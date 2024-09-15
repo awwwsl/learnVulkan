@@ -1,5 +1,6 @@
 #include "shader.hpp"
-#include "graphic.hpp"
+
+#include "../Models/graphic.hpp"
 
 #include <fstream>
 

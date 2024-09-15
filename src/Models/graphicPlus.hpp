@@ -2,8 +2,8 @@
 
 #include "../Utils/VkResultThrowable.hpp"
 
-#include "commandBuffer.hpp"
-#include "commandPool.hpp"
+#include "../Vulkan/commandBuffer.hpp"
+#include "../Vulkan/commandPool.hpp"
 #include <vulkan/vulkan.h>
 
 class graphicPlusImpl;
