@@ -6,15 +6,7 @@
 
 #include "../Utils/VkResultThrowable.hpp"
 
-#include "../Vulkan/commandBuffer.hpp"
-#include "../Vulkan/commandPool.hpp"
-#include "../Vulkan/fence.hpp"
-#include "../Vulkan/framebuffer.hpp"
-#include "../Vulkan/graphicsPipelineCreateInfoPack.hpp"
-#include "../Vulkan/pipeline.hpp"
-#include "../Vulkan/pipelineLayout.hpp"
-#include "../Vulkan/semaphore.hpp"
-#include "../Vulkan/shader.hpp"
+#include "../Vulkan/vulkanWrapper.hpp"
 
 #include "graphic.hpp"
 #include "graphicPlus.hpp"
@@ -31,12 +23,6 @@ namespace learnVulkan {
 struct vertex {
   glm::vec2 position;
   glm::vec4 color;
-};
-
-vertex vertices[] = {
-    {{0.f, -0.5f}, {1.f, 0.f, 0.f, 1.f}},
-    {{0.5f, 0.5f}, {0.f, 1.f, 0.f, 1.f}},
-    {{-0.5f, 0.5f}, {0.f, 0.f, 1.f, 1.f}},
 };
 
 window::window() {}
@@ -157,8 +143,10 @@ const void CreateLayout(vulkanWrapper::pipelineLayout &layout) {
 
 const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
                           vulkanWrapper::pipelineLayout &layout) {
-  static vulkanWrapper::shader vert("src/Shaders/triangle.vert.spv");
-  static vulkanWrapper::shader frag("src/Shaders/triangle.frag.spv");
+  static vulkanWrapper::shader vert(
+      "src/Shaders/vertexBufferTriangle.vert.spv");
+  static vulkanWrapper::shader frag(
+      "src/Shaders/vertexBufferTriangle.frag.spv");
   static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_triangle[2] = {
       vert.StageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
       frag.StageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT)};
@@ -166,6 +154,17 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
     const VkExtent2D &windowSize =
         graphic::Singleton().SwapchainCreateInfo().imageExtent;
     graphicsPipelineCreateInfoPack pipelineCiPack;
+
+    // 数据来自0号顶点缓冲区，输入频率是逐顶点输入
+    pipelineCiPack.vertexInputBindings.emplace_back(
+        0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX);
+    // location为0，数据来自0号顶点缓冲区，vec2对应VK_FORMAT_R32G32_SFLOAT，用offsetof计算position在vertex中的起始位置
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(vertex, position));
+    // location为1，数据来自0号顶点缓冲区，vec4对应VK_FORMAT_R32G32B32A32_SFLOAT，用offsetof计算color在vertex中的起始位置
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        1, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(vertex, color));
+
     pipelineCiPack.createInfo.layout = layout;
     pipelineCiPack.createInfo.renderPass =
         RenderPassAndFramebuffers().renderPass;
@@ -181,6 +180,7 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
     pipelineCiPack.UpdateAllArrays();
     pipelineCiPack.createInfo.stageCount = 2;
     pipelineCiPack.createInfo.pStages = shaderStageCreateInfos_triangle;
+
     pipeline.Create(pipelineCiPack);
   };
   auto Destroy = [&] { pipeline.~pipeline(); };
@@ -234,20 +234,44 @@ void window::run() {
   glfwSetWindowPosCallback(glfwWindow, [](GLFWwindow *window, int x, int y) {
     class window *self = (class window *)glfwGetWindowUserPointer(window);
     self->currentPosition = {x, y};
+#ifndef NDEBUG
+    printf(
+        "[ window ] DEBUG: glfwSetWindowPosCallback triggered: Pos(%d, %d)\n",
+        x, y);
+#endif
   });
 
-  glfwSetWindowSizeCallback(
-      glfwWindow, [](GLFWwindow *window, int width, int height) {
-        class window *self = (class window *)glfwGetWindowUserPointer(window);
-        self->currentSize = {uint32_t(width), uint32_t(height)};
-        graphic::Singleton().WaitIdle();
-        graphic::Singleton().RecreateSwapchain();
-      });
+  glfwSetWindowSizeCallback(glfwWindow, [](GLFWwindow *window, int width,
+                                           int height) {
+    class window *self = (class window *)glfwGetWindowUserPointer(window);
+    self->currentSize = {uint32_t(width), uint32_t(height)};
+    graphic::Singleton().WaitIdle();
+    // VK_ERROR_OUT_OF_DATE_KHR would handle this
+    // graphic::Singleton().RecreateSwapchain();
+#ifndef NDEBUG
+    printf(
+        "[ window ] DEBUG: glfwSetWindowSizeCallback triggered: Size(%d, %d)\n",
+        width, height);
+#endif
+  });
 
   glfwSetWindowIconifyCallback(glfwWindow, [](GLFWwindow *window, int iconify) {
     class window *self = (class window *)glfwGetWindowUserPointer(window);
     self->iconified = iconify;
+#ifndef NDEBUG
+    printf("[ window ] DEBUG: glfwSetWindowIconifyCallback triggered: "
+           "Iconified(%d)\n",
+           iconify);
+#endif
   });
+
+  vertex vertices[] = {
+      {{0.f, -0.5f}, {1.f, 0.f, 0.f, 1.f}},
+      {{0.5f, 0.5f}, {0.f, 1.f, 0.f, 1.f}},
+      {{-0.5f, 0.5f}, {0.f, 0.f, 1.f, 1.f}},
+  };
+  vulkanWrapper::vertexBuffer verticesBuffer(sizeof vertices);
+  verticesBuffer.TransferData(vertices, sizeof vertices);
 
   const renderPassWithFramebuffers &rpwf = RenderPassAndFramebuffers();
   const vulkanWrapper::renderPass &renderPass = rpwf.renderPass;
@@ -288,8 +312,12 @@ void window::run() {
     commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     renderPass.CmdBegin(commandBuffer, framebuffers[i], {{}, windowSize},
                         clearValues, VK_SUBPASS_CONTENTS_INLINE);
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       pipeline_triangle);
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, verticesBuffer.Address(),
+                           &offset);
     vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
     renderPass.CmdEnd(commandBuffer);

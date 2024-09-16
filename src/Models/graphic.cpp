@@ -14,10 +14,10 @@ graphic::~graphic() {
   if (device) {
     WaitIdle();
     if (swapchain) {
-      for (auto &i : destroySwapchainCallbacks) {
 #ifndef NDEBUG
-        printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+      printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
 #endif
+      for (auto &i : destroySwapchainCallbacks) {
         i();
       }
       for (auto &i : swapchainImageViews)
@@ -25,8 +25,10 @@ graphic::~graphic() {
           vkDestroyImageView(device, i, nullptr);
       vkDestroySwapchainKHR(device, swapchain, nullptr);
     }
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Executing destroyDeviceCallbacks\n");
+#endif
     for (auto &i : destroyDeviceCallbacks) {
-      printf("[ graphicsBase ] DEBUG: Executing destroyDeviceCallbacks\n");
       i();
     }
 
@@ -468,10 +470,10 @@ VkResultThrowable graphic::CreateDevice(VkDeviceCreateFlags flags) {
   printf("[ graphicsBase ] INFO: Renderer driver version: %u\n",
          physicalDeviceProperties.driverVersion);
 
-  for (auto &i : createDeviceCallbacks) {
 #ifndef NDEBUG
-    printf("[ graphicsBase ] DEBUG: Executing createDeviceCallbacks\n");
+  printf("[ graphicsBase ] DEBUG: Executing createDeviceCallbacks\n");
 #endif
+  for (auto &i : createDeviceCallbacks) {
     i();
   }
   return VK_SUCCESS;
@@ -540,6 +542,10 @@ VkResultThrowable graphic::CreateSwapchain_Internal() {
            int32_t(result));
     return result;
   }
+
+#ifndef NDEBUG
+  printf("[ graphicsBase ] DEBUG: Creating new swapchain: %p\n", swapchain);
+#endif
 
   // 获取交换连图像
   uint32_t swapchainImageCount;
@@ -688,13 +694,14 @@ VkResultThrowable graphic::CreateSwapchain(bool limitFrameRate,
   // 创建交换链
   if (VkResultThrowable result = CreateSwapchain_Internal())
     return result;
-  // 执行回调函数
-  for (auto &i : createSwapchainCallbacks) {
+    // 执行回调函数
 #ifndef NDEBUG
-    printf("[ graphicsBase ] DEBUG: Executing createSwapchainCallbacks\n");
+  printf("[ graphicsBase ] DEBUG: Executing createSwapchainCallbacks\n");
 #endif
+  for (auto &i : createSwapchainCallbacks) {
     i();
   }
+
   return VK_SUCCESS;
 }
 
@@ -722,10 +729,10 @@ VkResultThrowable graphic::RecreateSwapchain() {
     return result;
   }
   // 销毁旧交换链相关对象
-  for (auto &i : destroySwapchainCallbacks) {
 #ifndef NDEBUG
-    printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+  printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
 #endif
+  for (auto &i : destroySwapchainCallbacks) {
     i();
   }
   for (auto &i : swapchainImageViews)
@@ -735,10 +742,10 @@ VkResultThrowable graphic::RecreateSwapchain() {
   // 创建新交换链及与之相关的对象
   if (VkResultThrowable result = CreateSwapchain_Internal())
     return result;
-  for (auto &i : createSwapchainCallbacks) {
 #ifndef NDEBUG
-    printf("[ graphicsBase ] DEBUG: Executing createSwapchainCallbacks\n");
+  printf("[ graphicsBase ] DEBUG: Executing createSwapchainCallbacks\n");
 #endif
+  for (auto &i : createSwapchainCallbacks) {
     i();
   }
   return VK_SUCCESS;
@@ -748,6 +755,10 @@ VkResultThrowable graphic::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
   // 销毁旧交换链（若存在）
   if (swapchainCreateInfo.oldSwapchain &&
       swapchainCreateInfo.oldSwapchain != swapchain) {
+#ifndef NDEBUG
+    printf("[ graphicsBase ] DEBUG: Destroying old swapchain: %p\n",
+           (void *)swapchainCreateInfo.oldSwapchain);
+#endif
     vkDestroySwapchainKHR(device, swapchainCreateInfo.oldSwapchain, nullptr);
     swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
   }
@@ -758,6 +769,11 @@ VkResultThrowable graphic::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
     switch (result) {
     case VK_SUBOPTIMAL_KHR:
     case VK_ERROR_OUT_OF_DATE_KHR:
+#ifndef NDEBUG
+      printf("[ graphicsBase ] DEBUG: Swapchain out of date! Triggering "
+             "RecreateSwapchain()\n");
+#endif
+
       if (VkResult result = RecreateSwapchain())
         return result;
       break; // 注意重建交换链后仍需要获取图像，通过break递归，再次执行while的条件判定语句
@@ -784,10 +800,10 @@ VkResultThrowable graphic::RecreateDevice(VkDeviceCreateFlags flags) {
   if (VkResultThrowable result = WaitIdle())
     return result;
   if (swapchain) {
-    for (auto &i : destroySwapchainCallbacks) {
 #ifndef NDEBUG
-      printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+    printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
 #endif
+    for (auto &i : destroySwapchainCallbacks) {
       i();
     }
     for (auto &i : swapchainImageViews)
@@ -798,10 +814,10 @@ VkResultThrowable graphic::RecreateDevice(VkDeviceCreateFlags flags) {
     swapchain = VK_NULL_HANDLE;
     swapchainCreateInfo = {};
   }
-  for (auto &i : destroySwapchainCallbacks) {
 #ifndef NDEBUG
-    printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
+  printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
 #endif
+  for (auto &i : destroySwapchainCallbacks) {
     i();
   }
   if (device)
