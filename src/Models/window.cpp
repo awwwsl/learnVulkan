@@ -1,3 +1,4 @@
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #ifndef LIMIT_FRAME_RATE
@@ -303,15 +304,13 @@ void window::run() {
       glfwWaitEvents();
     }
 
-    VkExtent2D windowSize =
-        graphic::Singleton().SwapchainCreateInfo().imageExtent;
-
     graphic::Singleton().SwapImage(semaphore_imageAvailable);
     uint32_t i = graphic::Singleton().CurrentImageIndex();
 
     commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    renderPass.CmdBegin(commandBuffer, framebuffers[i], {{}, windowSize},
-                        clearValues, VK_SUBPASS_CONTENTS_INLINE);
+    renderPass.CmdBegin(commandBuffer, framebuffers[i],
+                        {{}, {framebuffers[i].Size()}}, clearValues,
+                        VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       pipeline_triangle);

@@ -1,7 +1,8 @@
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
-#include "graphic.hpp"
 #include "../Utils/VkResultThrowable.hpp"
+#include "graphic.hpp"
 #include "graphicPlus.hpp"
 
 #include <glm/glm.hpp>
@@ -705,6 +706,7 @@ VkResultThrowable graphic::CreateSwapchain(bool limitFrameRate,
   return VK_SUCCESS;
 }
 
+std::vector<VkSwapchainKHR> oldSwapchains = {};
 VkResultThrowable graphic::RecreateSwapchain() {
   VkSurfaceCapabilitiesKHR surfaceCapabilities = {};
   if (VkResultThrowable result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
@@ -719,6 +721,7 @@ VkResultThrowable graphic::RecreateSwapchain() {
     return VK_SUBOPTIMAL_KHR;
   swapchainCreateInfo.imageExtent = surfaceCapabilities.currentExtent;
   swapchainCreateInfo.oldSwapchain = swapchain;
+  oldSwapchains.push_back(swapchain);
   VkResultThrowable result = vkQueueWaitIdle(queue_graphics);
   if (result == VK_SUCCESS && queue_graphics != queue_presentation)
     result = vkQueueWaitIdle(queue_presentation);
@@ -728,7 +731,7 @@ VkResultThrowable graphic::RecreateSwapchain() {
            int32_t(result));
     return result;
   }
-  // 销毁旧交换链相关对象
+// 销毁旧交换链相关对象
 #ifndef NDEBUG
   printf("[ graphicsBase ] DEBUG: Executing destroySwapchainCallbacks\n");
 #endif
@@ -753,15 +756,16 @@ VkResultThrowable graphic::RecreateSwapchain() {
 
 VkResultThrowable graphic::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
   // 销毁旧交换链（若存在）
-  if (swapchainCreateInfo.oldSwapchain &&
-      swapchainCreateInfo.oldSwapchain != swapchain) {
+  for (auto &i : oldSwapchains) {
+    vkDestroySwapchainKHR(device, i, nullptr);
 #ifndef NDEBUG
-    printf("[ graphicsBase ] DEBUG: Destroying old swapchain: %p\n",
-           (void *)swapchainCreateInfo.oldSwapchain);
+    printf("[ graphicsBase ] DEBUG: Destroying old swapchain: %p\n", (void *)i);
+    i = nullptr;
 #endif
-    vkDestroySwapchainKHR(device, swapchainCreateInfo.oldSwapchain, nullptr);
-    swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
   }
+  oldSwapchains.clear();
+  swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+
   // 获取交换链图像索引
   while (VkResult result = vkAcquireNextImageKHR(
              device, swapchain, UINT64_MAX, semaphore_imageIsAvailable,

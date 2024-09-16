@@ -12,6 +12,7 @@
 
 VkResultThrowable
 vulkanWrapper::framebuffer::Create(VkFramebufferCreateInfo &createInfo) {
+  this->size = {createInfo.width, createInfo.height};
   createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
   VkResult result = vkCreateFramebuffer(graphic::Singleton().Device(),
                                         &createInfo, nullptr, &handle);

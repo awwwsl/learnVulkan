@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #include "../Utils/Macros.hpp"
@@ -9,6 +10,7 @@ namespace vulkanWrapper {
 
 class framebuffer {
   VkFramebuffer handle = VK_NULL_HANDLE;
+  VkExtent2D size = {0, 0};
 
 public:
   framebuffer();
@@ -20,6 +22,7 @@ public:
   // Getter
   DefineHandleTypeOperator;
   DefineAddressFunction;
+  inline VkExtent2D Size() const { return size; }
   // Non-const Function
   VkResultThrowable Create(VkFramebufferCreateInfo &createInfo);
 };
