@@ -6,6 +6,7 @@
 #endif
 
 #include "../Utils/VkResultThrowable.hpp"
+#include "../Utils/color.hpp"
 
 #include "../Vulkan/vulkanWrapper.hpp"
 
@@ -294,7 +295,10 @@ void window::run() {
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
   commandPool.AllocateBuffers(commandBuffer);
 
-  VkClearValue clearColor = {.color = {1.f, 0.f, 0.f, 1.f}}; // 红色
+  auto color = color::floatRGBA(101, 101, 101, 255);
+  VkClearValue clearColor = {.color = {std::get<0>(color), std::get<1>(color),
+                                       std::get<2>(color),
+                                       std::get<3>(color)}}; // 灰色
   std::vector<VkClearValue> clearValues = {clearColor};
 
   fence.Reset();
