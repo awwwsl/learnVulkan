@@ -28,5 +28,7 @@
 #include "shader.hpp"
 #include "stagingBuffer.hpp"
 #include "storageBuffer.hpp"
+#include "texture.hpp"
+#include "texture2d.hpp"
 #include "uniformBuffer.hpp"
 #include "vertexBuffer.hpp"

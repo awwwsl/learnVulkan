@@ -1,4 +1,5 @@
 #pragma once
+
 #include <vulkan/vulkan_format_traits.hpp>
 
 struct formatInfo {
@@ -12,6 +13,7 @@ struct formatInfo {
   uint8_t sizePerPixel; // 每个像素的大小，0意味着压缩
   uint8_t rawDataType;  // 底层数据类型
 
+  static const int FormatInfoCount();
   static const formatInfo FormatInfo(VkFormat format);
   // static const formatInfo getSizeMemory(VkFormat format);
   // static const formatInfo getSizeFileSystem(VkFormat format);

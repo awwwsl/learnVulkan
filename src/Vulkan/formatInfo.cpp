@@ -237,6 +237,8 @@ const formatInfo formatInfo::FormatInfo(VkFormat format) {
   return formatInfos_v1_0[format];
 }
 
+const int formatInfo::FormatInfoCount() { return LVK_FORMAT_INFO_MAX_ENUM + 1; }
+
 // const formatInfo formatInfo::getSizeFileSystem(VkFormat format) {
 //   throw nullptr; // TODO: Implement this function
 // }

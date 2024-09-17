@@ -56,5 +56,8 @@ vulkanWrapper::buffer::Create(VkBufferCreateInfo &createInfo) {
   if (result)
     printf("[ buffer ] ERROR: Failed to create a buffer!\nError code: %d\n",
            int32_t(result));
+#ifndef NDEBUG
+  printf("[ buffer ] Buffer created with handle %p\n", handle);
+#endif
   return result;
 };

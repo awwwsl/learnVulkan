@@ -40,8 +40,8 @@ public:
   VkImage AliasedImage2d(VkFormat format, VkExtent2D extent);
 
   // Static Methods
-  static stagingBuffer &CurrentThread(bool create = false) {
-    if (create && buffers.find(std::this_thread::get_id()) == buffers.end())
+  static stagingBuffer &CurrentThread() {
+    if (buffers.find(std::this_thread::get_id()) == buffers.end())
       return RegisterCurrentThread();
     return *buffers[std::this_thread::get_id()];
   }
@@ -81,6 +81,11 @@ public:
   static VkImage AliasedImage2d_CurrentThread(VkFormat format,
                                               VkExtent2D extent) {
     return CurrentThread().AliasedImage2d(format, extent);
+  }
+
+  static void ClearBuffers() {
+    for (auto &buffer : buffers)
+      buffer.second->Release();
   }
 };
 

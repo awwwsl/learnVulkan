@@ -1,7 +1,4 @@
-#include "rpwfUtils.hpp"
-#include <glm/ext/matrix_float4x4.hpp>
-#include <vector>
-#include <vulkan/vulkan_core.h>
+#include <thread>
 #define GLFW_INCLUDE_VULKAN
 
 #ifndef LIMIT_FRAME_RATE
@@ -17,9 +14,11 @@
 #include "entity.hpp"
 #include "graphic.hpp"
 #include "graphicPlus.hpp"
+#include "rpwfUtils.hpp"
 #include "window.hpp"
 
 #include <sstream>
+#include <vector>
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -144,6 +143,121 @@ bool window::initialize() {
   return true;
 }
 
+void BootScreen(const char *imagePath, VkFormat imageFormat) {
+  VkExtent2D imageExtent;
+  std::unique_ptr<uint8_t[]> pImageData =
+      vulkanWrapper::texture2d::LoadFile_FileSystem(
+          imagePath, imageExtent, formatInfo::FormatInfo(imageFormat));
+  if (!pImageData)
+    return;
+  vulkanWrapper::stagingBuffer::BufferData_CurrentThread(
+      pImageData.get(), formatInfo::FormatInfo(imageFormat).sizePerPixel *
+                            imageExtent.width * imageExtent.height);
+
+  vulkanWrapper::semaphore semaphore_imageIsAvailable;
+  vulkanWrapper::fence fence;
+  vulkanWrapper::commandBuffer commandBuffer;
+  vulkanWrapper::commandPool commandPool(
+      graphic::Singleton().QueueFamilyIndex_Graphics(),
+      VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+  commandPool.AllocateBuffers(commandBuffer);
+
+  graphic::Singleton().SwapImage(semaphore_imageIsAvailable);
+  commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+  VkExtent2D swapchainImageSize =
+      graphic::Singleton().SwapchainCreateInfo().imageExtent;
+  bool blit =
+      imageExtent.width != swapchainImageSize.width ||
+      imageExtent.height != swapchainImageSize.height ||
+      imageFormat != graphic::Singleton().SwapchainCreateInfo().imageFormat;
+  vulkanWrapper::imageMemory imageMemory;
+  if (blit) {
+    VkImage image = vulkanWrapper::stagingBuffer::AliasedImage2d_CurrentThread(
+        imageFormat, imageExtent);
+    if (image) {
+      VkImageMemoryBarrier imageMemoryBarrier = {
+          VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+          nullptr,
+          0,
+          VK_ACCESS_TRANSFER_READ_BIT,
+          VK_IMAGE_LAYOUT_PREINITIALIZED,
+          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+          VK_QUEUE_FAMILY_IGNORED,
+          VK_QUEUE_FAMILY_IGNORED,
+          image,
+          {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
+      vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                           VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
+                           nullptr, 1, &imageMemoryBarrier);
+    } else {
+      VkImageCreateInfo imageCreateInfo = {
+          .imageType = VK_IMAGE_TYPE_2D,
+          .format = imageFormat,
+          .extent = {imageExtent.width, imageExtent.height, 1},
+          .mipLevels = 1,
+          .arrayLayers = 1,
+          .samples = VK_SAMPLE_COUNT_1_BIT,
+          .usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                   VK_IMAGE_USAGE_TRANSFER_DST_BIT};
+      imageMemory.Create(imageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+      VkBufferImageCopy region_copy = {
+          .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+          .imageExtent = imageCreateInfo.extent};
+      imageOperation::CmdCopyBufferToImage(
+          commandBuffer, vulkanWrapper::stagingBuffer::Buffer_CurrentThread(),
+          imageMemory.Image(), region_copy,
+          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED},
+          {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL});
+
+      image = imageMemory.Image();
+    }
+    VkImageBlit region_blit = {
+        {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+        {{}, {int32_t(imageExtent.width), int32_t(imageExtent.height), 1}},
+        {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+        {{},
+         {int32_t(swapchainImageSize.width), int32_t(swapchainImageSize.height),
+          1}}};
+    imageOperation::CmdBlitImage(
+        commandBuffer, image,
+        graphic::Singleton().SwapchainImage(
+            graphic::Singleton().CurrentImageIndex()),
+        region_blit,
+        {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED},
+        {VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,
+         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR},
+        VK_FILTER_LINEAR);
+  } else {
+    VkBufferImageCopy region_copy = {
+        .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1},
+        .imageExtent = {imageExtent.width, imageExtent.height, 1}};
+    imageOperation::CmdCopyBufferToImage(
+        commandBuffer, vulkanWrapper::stagingBuffer::Buffer_CurrentThread(),
+        graphic::Singleton().SwapchainImage(
+            graphic::Singleton().CurrentImageIndex()),
+        region_copy,
+        {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED},
+        {VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,
+         VK_IMAGE_LAYOUT_PRESENT_SRC_KHR});
+  }
+  commandBuffer.End();
+
+  VkPipelineStageFlags waitDstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+  VkSubmitInfo submitInfo = {.waitSemaphoreCount = 1,
+                             .pWaitSemaphores =
+                                 semaphore_imageIsAvailable.Address(),
+                             .pWaitDstStageMask = &waitDstStage,
+                             .commandBufferCount = 1,
+                             .pCommandBuffers = commandBuffer.Address()};
+  graphic::Singleton().SubmitCommandBuffer_Graphics(submitInfo, fence);
+  fence.WaitAndReset();
+  graphic::Singleton().PresentImage();
+
+  std::vector<vulkanWrapper::commandBuffer *> buffers = {&commandBuffer};
+  commandPool.FreeBuffers(buffers);
+}
+
 const rpwfUtils::renderPassWithFramebuffers &RenderPassAndFramebuffers() {
   static std::vector<vulkanWrapper::depthStencilAttachment> dsas_screenWithDS;
   static const rpwfUtils::renderPassWithFramebuffers &rpwf =
@@ -241,6 +355,9 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
 
 void window::run() {
 
+  BootScreen("/home/awwwsl/desktop.png", VK_FORMAT_R8G8B8A8_UNORM);
+  std::this_thread::sleep_for(std::chrono::seconds(5));
+  printf("[ window ] INFO: BootScreen finished\n");
   const static auto registerLogicUpdateCallback = [this]() {
     updatePerPeriod(std::chrono::seconds(1), [this](int dframe, double dt) {
       std::stringstream info;
@@ -637,6 +754,7 @@ void window::updateLogic() {
 
 void window::TerminateWindow() {
   graphic::Singleton().WaitIdle();
+  vulkanWrapper::stagingBuffer::ClearBuffers();
   graphic::Singleton().ClearDestroySwapchainCallbacks();
   graphic::Singleton().ClearDestroyDeviceCallbacks();
   // graphicsBase::Singleton().Terminate();

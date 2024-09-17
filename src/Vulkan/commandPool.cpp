@@ -17,6 +17,7 @@ vulkanWrapper::commandPool::Create(VkCommandPoolCreateInfo &createInfo) {
     printf("[ commandPool ] ERROR: Failed to create a "
            "command pool!\nError code: %d\n",
            int32_t(result));
+  printf("[ commandPool ] CommandPool created with handle %p\n", handle);
   return result;
 }
 
@@ -33,6 +34,15 @@ VkResultThrowable vulkanWrapper::commandPool::AllocateBuffers(
     printf("[ commandPool ] ERROR: Failed to allocate "
            "command buffers!\nError code: %d\n",
            int32_t(result));
+#ifndef NDEBUG
+  printf("[ commandPool ] DEBUG: Allocated %d command buffers with handles: ",
+         allocateInfo.commandBufferCount);
+  for (int i = 0; i < allocateInfo.commandBufferCount; i++)
+    if (i == allocateInfo.commandBufferCount - 1)
+      printf("[%d]%p\n", i, buffers[i]);
+    else
+      printf("[%d]%p, ", i, buffers[i]);
+#endif
   return result;
 }
 //  HACK: Copy
@@ -65,10 +75,10 @@ void vulkanWrapper::commandPool::FreeBuffers(
 }
 //  HACK: Copy
 void vulkanWrapper::commandPool::FreeBuffers(
-    std::vector<commandBuffer> &buffers) const {
+    std::vector<commandBuffer *> &buffers) const {
   std::vector<VkCommandBuffer> bufferHandles(buffers.size());
   for (size_t i = 0; i < buffers.size(); i++) {
-    bufferHandles[i] = buffers[i].handle;
+    bufferHandles[i] = buffers[i]->handle;
   }
 
   return FreeBuffers(bufferHandles);

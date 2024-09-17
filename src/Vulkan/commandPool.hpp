@@ -42,7 +42,7 @@ public:
       VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const;
 
   //  HACK: Copy
-  void FreeBuffers(std::vector<commandBuffer> &buffers) const;
+  void FreeBuffers(std::vector<commandBuffer *> &buffers) const;
   void FreeBuffers(std::vector<VkCommandBuffer> &buffers) const;
 
   // Non-const Function

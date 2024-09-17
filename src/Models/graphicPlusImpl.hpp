@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Vulkan//formatInfo.hpp"
 #include "../Vulkan/commandBuffer.hpp"
 #include "../Vulkan/commandPool.hpp"
 
@@ -7,11 +8,13 @@
 #include "graphicPlus.hpp"
 
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 class graphicPlusImpl {
   friend class graphicPlus;
 
-  std::vector<VkFormatProperties> formatProperties;
+  std::vector<VkFormatProperties> formatProperties =
+      std::vector<VkFormatProperties>(formatInfo::FormatInfoCount());
   vulkanWrapper::commandPool commandPool_graphics;
   vulkanWrapper::commandPool commandPool_presentation;
   vulkanWrapper::commandPool commandPool_compute;

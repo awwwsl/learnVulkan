@@ -10,7 +10,9 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O2")
 
 set(SOURCES
     src/main.cpp
+
     src/Utils/VkResultThrowable.cpp
+    src/Utils/imageOperation.cpp
 
     src/Vulkan/attachment.cpp
     src/Vulkan/buffer.cpp
@@ -39,6 +41,8 @@ set(SOURCES
     src/Vulkan/semaphore.cpp
     src/Vulkan/shader.cpp
     src/Vulkan/stagingBuffer.cpp
+    src/Vulkan/texture.cpp
+    src/Vulkan/texture2d.cpp
 
     src/Models/graphic.cpp
     src/Models/graphicPlus.cpp
@@ -55,6 +59,7 @@ find_package(VulkanLoader REQUIRED)
 find_package(VulkanHeaders REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
+find_package(stb REQUIRED)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_link_libraries(${PROJECT_NAME} glfw Vulkan::Loader glm::glm)
+target_link_libraries(${PROJECT_NAME} glfw Vulkan::Loader glm::glm stb::stb)
