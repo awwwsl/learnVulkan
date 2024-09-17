@@ -318,6 +318,18 @@ void window::run() {
             camera::Singleton().verticalUpward(
                 -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
           }
+          static bool keyCPressed = false;
+          static float fov = camera::Singleton().fov;
+          if (glfwGetKey(glfwWindow, GLFW_KEY_C) == GLFW_PRESS &&
+              keyCPressed == false) {
+            keyCPressed = true;
+            fov = camera::Singleton().fov;
+            camera::Singleton().fov = 30.f;
+          } else if (glfwGetKey(glfwWindow, GLFW_KEY_C) == GLFW_RELEASE &&
+                     keyCPressed == true) {
+            keyCPressed = false;
+            camera::Singleton().fov = fov;
+          }
         });
 
     updatePerPeriod(std::chrono::milliseconds(10000), [this](int, double) {
@@ -410,6 +422,16 @@ void window::run() {
 #endif
           }
         });
+
+    glfwSetScrollCallback(
+        glfwWindow, [](GLFWwindow *window, double xoffset, double yoffset) {
+          class window *self = (class window *)glfwGetWindowUserPointer(window);
+          camera::Singleton().fov -= yoffset;
+          if (camera::Singleton().fov < 30.0f)
+            camera::Singleton().fov = 30.0f;
+          if (camera::Singleton().fov > 120.0f)
+            camera::Singleton().fov = 120.0f;
+        });
   };
 
   registerLogicUpdateCallback();
@@ -453,12 +475,20 @@ void window::run() {
       {{-0.5f, -0.5f, 0.5f}, {0.0f, 1.0f}},
   };
 
-  glm::mat4 models[10][10][10];
+  glm::mat4 models[20][10][10];
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++) {
       for (int k = 0; k < 10; k++) {
         models[i][j][k] = glm::translate(glm::mat4(1.f),
                                          glm::vec3(i * 2.f, j * 2.f, k * 2.f));
+      }
+    }
+  }
+  for (int i = 10; i < 20; i++) {
+    for (int j = 0; j < 10; j++) {
+      for (int k = 0; k < 10; k++) {
+        models[i][j][k] =
+            glm::translate(glm::mat4(1.f), glm::vec3(i + 15.f, j, k));
       }
     }
   }
@@ -476,7 +506,7 @@ void window::run() {
   vulkanWrapper::vertexBuffer verticesBuffer(sizeof vertices);
   verticesBuffer.TransferData(vertices, sizeof vertices);
 
-  vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) * 1000);
+  vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) * 2000);
   instanceBuffer.TransferData(models, sizeof models);
 
   vulkanWrapper::indexBuffer indexBuffer(sizeof indices);
@@ -534,15 +564,14 @@ void window::run() {
   VkClearValue depthClear = {.depthStencil = {1.f, 0}};
   std::vector<VkClearValue> clearValues = {clearColor, depthClear};
 
-  int frame = 0;
+  MVP mvp;
+  mvp.model = glm::mat4(1.0f);
   fence.Reset();
   while (!glfwWindowShouldClose(glfwWindow)) {
     while (glfwGetWindowAttrib(glfwWindow, GLFW_ICONIFIED)) {
       glfwWaitEvents();
     }
 
-    frame++;
-    frame %= 90;
     graphic::Singleton().SwapImage(semaphore_imageAvailable);
     uint32_t i = graphic::Singleton().CurrentImageIndex();
 
@@ -551,8 +580,6 @@ void window::run() {
                         {{}, {framebuffers[i].Size()}}, clearValues,
                         VK_SUBPASS_CONTENTS_INLINE);
 
-    MVP mvp;
-    mvp.model = glm::mat4(1.0f);
     mvp.view = camera::Singleton().getViewMatrix();
     mvp.projection = camera::Singleton().getProjectionMatrix(
         currentSize.width, currentSize.height);
@@ -572,14 +599,16 @@ void window::run() {
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             layout_cube, 0, 1, descriptorSet_3dMVP.Address(), 0,
                             nullptr);
-    vkCmdDrawIndexed(commandBuffer, 36, 1000, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 36, 2000, 0, 0, 0);
 
     renderPass.CmdEnd(commandBuffer);
     commandBuffer.End();
 
     graphic::Singleton().SubmitCommandBuffer_Graphics(
         commandBuffer, semaphore_imageAvailable, semaphore_renderFinished,
-        fence, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
+        fence,
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
     graphic::Singleton().PresentImage(semaphore_renderFinished);
 
     glfwPollEvents();

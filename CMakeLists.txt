@@ -35,6 +35,7 @@ set(SOURCES
     src/Vulkan/pipeline.cpp
     src/Vulkan/pipelineLayout.cpp
     src/Vulkan/renderPass.cpp
+    src/Vulkan/sampler.cpp
     src/Vulkan/semaphore.cpp
     src/Vulkan/shader.cpp
     src/Vulkan/stagingBuffer.cpp

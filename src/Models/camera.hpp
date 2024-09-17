@@ -31,7 +31,7 @@ public:
   static const constexpr float defaultPitch = 0.0f;
   static const constexpr float defaultFov = 90.0f;
 
-  static const constexpr float defaultNearPlane = 0.1f;
+  static const constexpr float defaultNearPlane = 0.02f;
   static const constexpr float defaultFarPlane = 100.0f;
 
   inline camera()

@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #include "graphic.hpp"
@@ -476,6 +478,21 @@ VkResultThrowable graphic::CreateDevice(VkDeviceCreateFlags flags) {
          physicalDeviceProperties.driverVersion);
 
 #ifndef NDEBUG
+  uint32_t extensionCount = 0;
+  vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount,
+                                       nullptr);
+  if (extensionCount) {
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(
+        physicalDevice, nullptr, &extensionCount, availableExtensions.data());
+    printf("[ graphicsBase ] DEBUG: Device extensions: ");
+    for (int i = 0; i < extensionCount; i++) {
+      if (i == extensionCount - 1)
+        printf("%s\n", availableExtensions[i].extensionName);
+      else
+        printf("%s, ", availableExtensions[i].extensionName);
+    }
+  }
   printf("[ graphicsBase ] DEBUG: Executing createDeviceCallbacks\n");
 #endif
   for (auto &i : createDeviceCallbacks) {
@@ -773,7 +790,7 @@ VkResultThrowable graphic::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
   // 获取交换链图像索引
   while (VkResult result = vkAcquireNextImageKHR(
              device, swapchain, UINT64_MAX, semaphore_imageIsAvailable,
-             VK_NULL_HANDLE, &currentImageIndex))
+             VK_NULL_HANDLE, &currentImageIndex)) {
     switch (result) {
     case VK_SUBOPTIMAL_KHR:
     case VK_ERROR_OUT_OF_DATE_KHR:
@@ -781,7 +798,6 @@ VkResultThrowable graphic::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
       printf("[ graphicsBase ] DEBUG: Swapchain out of date! Triggering "
              "RecreateSwapchain()\n");
 #endif
-
       if (VkResult result = RecreateSwapchain())
         return result;
       break; // 注意重建交换链后仍需要获取图像，通过break递归，再次执行while的条件判定语句
@@ -791,6 +807,7 @@ VkResultThrowable graphic::SwapImage(VkSemaphore semaphore_imageIsAvailable) {
              int32_t(result));
       return result;
     }
+  }
   return VK_SUCCESS;
 }
 
@@ -840,7 +857,7 @@ graphic::SubmitCommandBuffer_Graphics(VkSubmitInfo &submitInfo,
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
   VkResult result = vkQueueSubmit(queue_graphics, 1, &submitInfo, fence);
   if (result)
-    printf("[ graphicsBase ] ERROR:Failed to submit the "
+    printf("[ graphicsBase ] ERROR: Failed to submit the "
            "command buffer!\nError code: %d\n",
            int32_t(result));
   return result;
