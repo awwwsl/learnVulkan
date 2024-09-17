@@ -180,15 +180,24 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
         graphic::Singleton().SwapchainCreateInfo().imageExtent;
     graphicsPipelineCreateInfoPack pipelineCiPack;
 
-    // 数据来自0号顶点缓冲区，输入频率是逐顶点输入
     pipelineCiPack.vertexInputBindings.emplace_back(
         0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX);
-    // location为0，数据来自0号顶点缓冲区，vec2对应VK_FORMAT_R32G32B32_SFLOAT，用offsetof计算position在vertex中的起始位置
     pipelineCiPack.vertexInputAttributes.emplace_back(
         0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, position));
-    // location为1，数据来自0号顶点缓冲区，vec4对应VK_FORMAT_R32G32_SFLOAT，用offsetof计算texCoord在vertex中的起始位置
     pipelineCiPack.vertexInputAttributes.emplace_back(
         1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(vertex, texCoord));
+
+    pipelineCiPack.vertexInputBindings.emplace_back(
+        1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE);
+
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        2, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 0);
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 1);
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2);
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3);
 
     pipelineCiPack.createInfo.layout = layout;
     pipelineCiPack.createInfo.renderPass =
@@ -216,14 +225,6 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
 
 void window::run() {
 
-  entity cube(glm::vec3(0.f, 0.f, -2.f));
-  cube.scale = glm::vec3(0.5f, 0.5f, 0.5f);
-
-  MVP mvp;
-  mvp.model = cube.getModelMatrix();
-  mvp.view = camera::Singleton().getViewMatrix();
-  mvp.projection = camera::Singleton().getProjectionMatrix(
-      (float)currentSize.width / (float)currentSize.height);
   const static auto registerLogicUpdateCallback = [this]() {
     updatePerPeriod(std::chrono::seconds(1), [this](int dframe, double dt) {
       std::stringstream info;
@@ -247,39 +248,39 @@ void window::run() {
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
         currentPosition.y += 10 * ((speeding) ? 5 : 1);
-        printf("Down\n");
+        // printf("Down\n");
         MakeWindowWindowed(currentPosition, currentSize);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_UP) == GLFW_PRESS) {
         currentPosition.y -= 10 * ((speeding) ? 5 : 1);
-        printf("Up\n");
+        // printf("Up\n");
         MakeWindowWindowed(currentPosition, currentSize);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT) == GLFW_PRESS) {
         currentPosition.x -= 10 * ((speeding) ? 5 : 1);
-        printf("Left\n");
+        // printf("Left\n");
         MakeWindowWindowed(currentPosition, currentSize);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT) == GLFW_PRESS) {
         currentPosition.x += 10 * ((speeding) ? 5 : 1);
-        printf("Right\n");
+        // printf("Right\n");
         MakeWindowWindowed(currentPosition, currentSize);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_W) == GLFW_PRESS) {
         camera::Singleton().horizentalForward(.1f);
-        printf("W\n");
+        // printf("W\n");
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_S) == GLFW_PRESS) {
         camera::Singleton().horizentalForward(-.1f);
-        printf("S\n");
+        // printf("S\n");
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_A) == GLFW_PRESS) {
         camera::Singleton().horizentalRightward(-.1f);
-        printf("A\n");
+        // printf("A\n");
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_D) == GLFW_PRESS) {
         camera::Singleton().horizentalRightward(.1f);
-        printf("D\n");
+        // printf("D\n");
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
         camera::Singleton().verticalUpward(.1f);
@@ -422,6 +423,16 @@ void window::run() {
       {{-0.5f, -0.5f, 0.5f}, {0.0f, 1.0f}},
   };
 
+  glm::mat4 models[10][10][10];
+  for (int i = 0; i < 10; i++) {
+    for (int j = 0; j < 10; j++) {
+      for (int k = 0; k < 10; k++) {
+        models[i][j][k] = glm::translate(glm::mat4(1.f),
+                                         glm::vec3(i * 2.f, j * 2.f, k * 2.f));
+      }
+    }
+  }
+
   uint16_t indices[] = {
       0,  1,  2,  2,  3,  0,  // Front face
       4,  5,  6,  6,  7,  4,  // Back face
@@ -433,6 +444,9 @@ void window::run() {
 
   vulkanWrapper::vertexBuffer verticesBuffer(sizeof vertices);
   verticesBuffer.TransferData(vertices, sizeof vertices);
+
+  vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) * 1000);
+  instanceBuffer.TransferData(models, sizeof models);
 
   vulkanWrapper::indexBuffer indexBuffer(sizeof indices);
   indexBuffer.TransferData(indices, sizeof indices);
@@ -504,12 +518,13 @@ void window::run() {
                         {{}, {framebuffers[i].Size()}}, clearValues,
                         VK_SUBPASS_CONTENTS_INLINE);
 
+    MVP mvp;
+    mvp.model = glm::mat4(1.0f);
+    mvp.view = camera::Singleton().getViewMatrix();
+    mvp.projection = camera::Singleton().getProjectionMatrix(
+        currentSize.width, currentSize.height);
     // TransferData
     verticesBuffer.TransferData(vertices, sizeof vertices);
-    MVP mvp = {.model = cube.getModelMatrix(),
-               .view = camera::Singleton().getViewMatrix(),
-               .projection = camera::Singleton().getProjectionMatrix(
-                   (float)currentSize.width / (float)currentSize.height)};
     ubo_mvp.TransferData(&mvp, sizeof(MVP));
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -517,11 +532,14 @@ void window::run() {
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, verticesBuffer.Address(),
                            &offset);
+    vkCmdBindVertexBuffers(commandBuffer, 1, 1, instanceBuffer.Address(),
+                           &offset);
+
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             layout_cube, 0, 1, descriptorSet_3dMVP.Address(), 0,
                             nullptr);
-    vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 36, 1000, 0, 0, 0);
 
     renderPass.CmdEnd(commandBuffer);
     commandBuffer.End();
