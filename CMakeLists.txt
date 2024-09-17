@@ -12,11 +12,14 @@ set(SOURCES
     src/main.cpp
     src/Utils/VkResultThrowable.cpp
 
+    src/Vulkan/attachment.cpp
     src/Vulkan/buffer.cpp
     src/Vulkan/bufferMemory.cpp
     src/Vulkan/bufferView.cpp
+    src/Vulkan/colorAttachment.cpp
     src/Vulkan/commandBuffer.cpp
     src/Vulkan/commandPool.cpp
+    src/Vulkan/depthStencilAttachment.cpp
     src/Vulkan/descriptorPool.cpp
     src/Vulkan/descriptorSet.cpp
     src/Vulkan/descriptorSetLayout.cpp
@@ -27,6 +30,7 @@ set(SOURCES
     src/Vulkan/framebuffer.cpp
     src/Vulkan/graphicsPipelineCreateInfoPack.cpp
     src/Vulkan/image.cpp
+    src/Vulkan/imageMemory.cpp
     src/Vulkan/imageView.cpp
     src/Vulkan/pipeline.cpp
     src/Vulkan/pipelineLayout.cpp
@@ -38,6 +42,7 @@ set(SOURCES
     src/Models/graphic.cpp
     src/Models/graphicPlus.cpp
     src/Models/graphicPlusImpl.cpp
+    src/Models/rpwfUtils.cpp
     src/Models/window.cpp
 )
 

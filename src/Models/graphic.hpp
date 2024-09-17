@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #include "../Utils/VkResultThrowable.hpp"
@@ -10,11 +11,6 @@
 
 #include <stdio.h>
 #include <vector>
-
-struct renderPassWithFramebuffers {
-  vulkanWrapper::renderPass renderPass;
-  std::vector<vulkanWrapper::framebuffer> framebuffers;
-};
 
 class graphicPlus;
 
@@ -229,8 +225,6 @@ public:
   PresentImage(VkSemaphore semaphore_renderFinished = VK_NULL_HANDLE);
 
   VkResultThrowable PresentImage(VkPresentInfoKHR &presentInfo);
-
-  const renderPassWithFramebuffers &CreateRpwf_Screen();
 
   void CmdTransferImageOwnership(VkCommandBuffer commandBuffer) const;
 

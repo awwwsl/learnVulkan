@@ -59,5 +59,8 @@ VkResultThrowable vulkanWrapper::image::Create(VkImageCreateInfo &createInfo) {
   if (result)
     printf("[ image ] ERROR: Failed to create an image!\nError code: %d\n",
            int32_t(result));
+#ifndef NDEBUG
+  printf("[ image ] DEBUG: Image created with handle %p\n", handle);
+#endif
   return result;
 }

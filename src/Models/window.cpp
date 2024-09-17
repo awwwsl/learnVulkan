@@ -1,3 +1,4 @@
+#include "rpwfUtils.hpp"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -143,9 +144,11 @@ bool window::initialize() {
   return true;
 }
 
-const renderPassWithFramebuffers &RenderPassAndFramebuffers() {
-  static const renderPassWithFramebuffers &rpwf =
-      graphic::Singleton().CreateRpwf_Screen();
+const rpwfUtils::renderPassWithFramebuffers &RenderPassAndFramebuffers() {
+  static std::vector<vulkanWrapper::depthStencilAttachment> dsas_screenWithDS;
+  static const rpwfUtils::renderPassWithFramebuffers &rpwf =
+      rpwfUtils::CreateRpwf_ScreenWithDS(VK_FORMAT_D24_UNORM_S8_UINT,
+                                         dsas_screenWithDS);
   return rpwf;
 }
 
@@ -207,8 +210,21 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
     pipelineCiPack.viewports.emplace_back(0.f, 0.f, float(windowSize.width),
                                           float(windowSize.height), 0.f, 1.f);
     pipelineCiPack.scissors.emplace_back(VkOffset2D{}, windowSize);
+
+    // 开启背面剔除
+    pipelineCiPack.rasterizationStateCi.cullMode = VK_CULL_MODE_BACK_BIT;
+    pipelineCiPack.rasterizationStateCi.frontFace =
+        VK_FRONT_FACE_CLOCKWISE; // 默认值，为0
+
     pipelineCiPack.multisampleStateCi.rasterizationSamples =
         VK_SAMPLE_COUNT_1_BIT;
+
+    // 开启深度测试
+    pipelineCiPack.depthStencilStateCi.depthTestEnable = VK_TRUE;
+    pipelineCiPack.depthStencilStateCi.depthWriteEnable = VK_TRUE;
+    pipelineCiPack.depthStencilStateCi.depthCompareOp =
+        VK_COMPARE_OP_LESS; // 若新片元的深度更小，则通过测试
+
     pipelineCiPack.colorBlendAttachmentStates.push_back(
         {.colorWriteMask = 0b1111});
     pipelineCiPack.UpdateAllArrays();
@@ -448,6 +464,7 @@ void window::run() {
   }
 
   uint16_t indices[] = {
+      // CW order
       0,  1,  2,  2,  3,  0,  // Front face
       4,  5,  6,  6,  7,  4,  // Back face
       8,  9,  10, 10, 11, 8,  // Left face
@@ -472,7 +489,8 @@ void window::run() {
 
   vulkanWrapper::descriptorSetLayout descriptorSetLayout_3dMVP;
 
-  const renderPassWithFramebuffers &rpwf = RenderPassAndFramebuffers();
+  const rpwfUtils::renderPassWithFramebuffers &rpwf =
+      RenderPassAndFramebuffers();
   const vulkanWrapper::renderPass &renderPass = rpwf.renderPass;
   const std::vector<vulkanWrapper::framebuffer> &framebuffers =
       rpwf.framebuffers;
@@ -513,7 +531,8 @@ void window::run() {
   VkClearValue clearColor = {.color = {std::get<0>(color), std::get<1>(color),
                                        std::get<2>(color),
                                        std::get<3>(color)}}; // 灰色
-  std::vector<VkClearValue> clearValues = {clearColor};
+  VkClearValue depthClear = {.depthStencil = {1.f, 0}};
+  std::vector<VkClearValue> clearValues = {clearColor, depthClear};
 
   int frame = 0;
   fence.Reset();
@@ -560,7 +579,7 @@ void window::run() {
 
     graphic::Singleton().SubmitCommandBuffer_Graphics(
         commandBuffer, semaphore_imageAvailable, semaphore_renderFinished,
-        fence);
+        fence, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
     graphic::Singleton().PresentImage(semaphore_renderFinished);
 
     glfwPollEvents();

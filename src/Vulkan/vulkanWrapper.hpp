@@ -1,10 +1,13 @@
 #pragma once
 
+#include "attachment.hpp"
 #include "buffer.hpp"
 #include "bufferMemory.hpp"
 #include "bufferView.hpp"
+#include "colorAttachment.hpp"
 #include "commandBuffer.hpp"
 #include "commandPool.hpp"
+#include "depthStencilAttachment.hpp"
 #include "descriptorPool.hpp"
 #include "descriptorSet.hpp"
 #include "descriptorSetLayout.hpp"
@@ -15,6 +18,7 @@
 #include "framebuffer.hpp"
 #include "graphicsPipelineCreateInfoPack.hpp"
 #include "image.hpp"
+#include "imageMemory.hpp"
 #include "imageView.hpp"
 #include "indexBuffer.hpp"
 #include "pipeline.hpp"
