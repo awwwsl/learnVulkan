@@ -17,6 +17,9 @@ set(SOURCES
     src/Vulkan/bufferView.cpp
     src/Vulkan/commandBuffer.cpp
     src/Vulkan/commandPool.cpp
+    src/Vulkan/descriptorPool.cpp
+    src/Vulkan/descriptorSet.cpp
+    src/Vulkan/descriptorSetLayout.cpp
     src/Vulkan/deviceLocalBuffer.cpp
     src/Vulkan/deviceMemory.cpp
     src/Vulkan/fence.cpp

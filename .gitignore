@@ -26,6 +26,9 @@
 **/*.a
 **/*.lib
 
+# Compiled SPIR-V Files
+**/*.spv
+
 # Executables
 **/*.exe
 **/*.out
