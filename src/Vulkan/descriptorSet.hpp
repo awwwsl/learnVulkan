@@ -15,7 +15,16 @@ class descriptorSet {
 
 public:
   descriptorSet();
+  descriptorSet(const descriptorSet &other) noexcept {
+    this->handle = other.handle;
+  }
   descriptorSet(descriptorSet &&other) noexcept;
+
+  descriptorSet operator=(VkDescriptorSet &set) {
+    this->handle = set;
+    return *this;
+  }
+
   // Getter
   DefineHandleTypeOperator;
   DefineAddressFunction;

@@ -26,19 +26,19 @@ public:
   DefineAddressFunction;
   // Const Function
   VkResultThrowable
-  AllocateSets(std::vector<VkDescriptorSet> sets,
-               std::vector<VkDescriptorSetLayout> setLayouts) const;
+  AllocateSets(std::vector<VkDescriptorSet> &sets,
+               std::vector<VkDescriptorSetLayout> &setLayouts) const;
   VkResultThrowable
-  AllocateSets(std::vector<VkDescriptorSet> sets,
-               std::vector<descriptorSetLayout> setLayouts) const;
+  AllocateSets(std::vector<VkDescriptorSet> &sets,
+               std::vector<descriptorSetLayout> &setLayouts) const;
   VkResultThrowable
-  AllocateSets(std::vector<descriptorSet> sets,
-               std::vector<VkDescriptorSetLayout> setLayouts) const;
+  AllocateSets(std::vector<descriptorSet> &sets,
+               std::vector<VkDescriptorSetLayout> &setLayouts) const;
   VkResultThrowable
-  AllocateSets(std::vector<descriptorSet> sets,
-               std::vector<descriptorSetLayout> setLayouts) const;
-  VkResultThrowable FreeSets(std::vector<VkDescriptorSet> sets) const;
-  VkResultThrowable FreeSets(std::vector<descriptorSet> sets) const;
+  AllocateSets(std::vector<descriptorSet> &sets,
+               std::vector<descriptorSetLayout> &setLayouts) const;
+  VkResultThrowable FreeSets(std::vector<VkDescriptorSet> &sets) const;
+  VkResultThrowable FreeSets(std::vector<descriptorSet> &sets) const;
   // Non-const Function
   VkResultThrowable Create(VkDescriptorPoolCreateInfo &createInfo);
   VkResultThrowable Create(uint32_t maxSetCount,

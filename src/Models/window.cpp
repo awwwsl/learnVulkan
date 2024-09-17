@@ -1,4 +1,5 @@
 #include <glm/ext/matrix_float4x4.hpp>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
@@ -36,7 +37,7 @@ struct alignas(16) MVP {
   glm::mat4 projection;
 };
 
-vulkanWrapper::descriptorSetLayout descriptorSetLayout_triangle;
+vulkanWrapper::descriptorSetLayout descriptorSetLayout_3dMVP;
 
 window::window() {}
 
@@ -56,6 +57,7 @@ bool window::initialize() {
   glfwWindow = glfwCreateWindow(defaultSize.width, defaultSize.height,
                                 windowTitle.c_str(), nullptr, nullptr);
   glfwSetWindowUserPointer(glfwWindow, this);
+  glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
   glfwGetWindowPos(glfwWindow, &currentPosition.x, &currentPosition.y);
   currentSize = defaultSize;
@@ -150,7 +152,19 @@ const renderPassWithFramebuffers &RenderPassAndFramebuffers() {
 }
 
 const void CreateLayout(vulkanWrapper::pipelineLayout &layout) {
-  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
+  VkDescriptorSetLayoutBinding descriptorSetLayoutBinding_3dMVP = {
+      .binding = 0, // 描述符被绑定到0号binding
+      .descriptorType =
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
+      .descriptorCount = 1,                  // 个数是1个
+      .stageFlags =
+          VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
+  };
+  VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo_3dMVP = {
+      .bindingCount = 1, .pBindings = &descriptorSetLayoutBinding_3dMVP};
+  descriptorSetLayout_3dMVP.Create(descriptorSetLayoutCreateInfo_3dMVP);
+  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+      .setLayoutCount = 1, .pSetLayouts = descriptorSetLayout_3dMVP.Address()};
   layout.Create(pipelineLayoutCreateInfo);
 }
 
@@ -158,7 +172,7 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
                           vulkanWrapper::pipelineLayout &layout) {
   static vulkanWrapper::shader vert("src/Shaders/3d.vert.spv");
   static vulkanWrapper::shader frag("src/Shaders/3d.frag.spv");
-  static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_triangle[2] = {
+  static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_3d[2] = {
       vert.StageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
       frag.StageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT)};
   auto Create = [&] {
@@ -190,7 +204,7 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
         {.colorWriteMask = 0b1111});
     pipelineCiPack.UpdateAllArrays();
     pipelineCiPack.createInfo.stageCount = 2;
-    pipelineCiPack.createInfo.pStages = shaderStageCreateInfos_triangle;
+    pipelineCiPack.createInfo.pStages = shaderStageCreateInfos_3d;
 
     pipeline.Create(pipelineCiPack);
   };
@@ -201,6 +215,15 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
 }
 
 void window::run() {
+
+  entity cube(glm::vec3(0.f, 0.f, -2.f));
+  cube.scale = glm::vec3(0.5f, 0.5f, 0.5f);
+
+  MVP mvp;
+  mvp.model = cube.getModelMatrix();
+  mvp.view = camera::Singleton().getViewMatrix();
+  mvp.projection = camera::Singleton().getProjectionMatrix(
+      (float)currentSize.width / (float)currentSize.height);
   const static auto registerLogicUpdateCallback = [this]() {
     updatePerPeriod(std::chrono::seconds(1), [this](int dframe, double dt) {
       std::stringstream info;
@@ -210,10 +233,17 @@ void window::run() {
     });
 
     updatePerPeriod(std::chrono::milliseconds(20), [this](int, double) {
-      bool speeding = glfwGetKey(glfwWindow, GLFW_KEY_LEFT_SHIFT);
+      bool speeding =
+          glfwGetKey(glfwWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS;
 
       if (glfwGetKey(glfwWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(glfwWindow, GLFW_TRUE);
+      }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
+        glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+      }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT_SHIFT) == GLFW_RELEASE) {
+        glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
       }
       if (glfwGetKey(glfwWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
         currentPosition.y += 10 * ((speeding) ? 5 : 1);
@@ -235,9 +265,31 @@ void window::run() {
         printf("Right\n");
         MakeWindowWindowed(currentPosition, currentSize);
       }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_W) == GLFW_PRESS) {
+        camera::Singleton().horizentalForward(.1f);
+        printf("W\n");
+      }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_S) == GLFW_PRESS) {
+        camera::Singleton().horizentalForward(-.1f);
+        printf("S\n");
+      }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_A) == GLFW_PRESS) {
+        camera::Singleton().horizentalRightward(-.1f);
+        printf("A\n");
+      }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_D) == GLFW_PRESS) {
+        camera::Singleton().horizentalRightward(.1f);
+        printf("D\n");
+      }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        camera::Singleton().verticalUpward(.1f);
+      }
+      if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+        camera::Singleton().verticalUpward(-.1f);
+      }
     });
 
-    updatePerPeriod(std::chrono::milliseconds(1000), [this](int, double) {
+    updatePerPeriod(std::chrono::milliseconds(10000), [this](int, double) {
       printf("Position: (%d, %d)\n", currentPosition.x, currentPosition.y);
       printf("Size: (%d, %d)\n", currentSize.width, currentSize.height);
       printf("Iconified: %s\n", iconified ? "true" : "false");
@@ -279,26 +331,59 @@ void window::run() {
                  iconify);
 #endif
         });
+
+    glfwSetCursorPosCallback(
+        glfwWindow, [](GLFWwindow *window, double xpos, double ypos) {
+          static double lastX = xpos, lastY = ypos;
+          static bool firstMouse = true;
+          if (firstMouse) {
+            lastX = xpos;
+            lastY = ypos;
+            firstMouse = false;
+          }
+          float xoffset = xpos - lastX;
+          float yoffset = ypos - lastY;
+          lastX = xpos;
+          lastY = ypos;
+
+          static float sensitivity = 0.5f;
+          class window *self = (class window *)glfwGetWindowUserPointer(window);
+          if (glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED &&
+              glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) != GLFW_PRESS) {
+            camera::Singleton().yaw += xoffset * sensitivity * .1f;
+            camera::Singleton().pitch += yoffset * sensitivity * .1f;
+
+            if (camera::Singleton().pitch > 89.0f)
+              camera::Singleton().pitch = 89.0f;
+            if (camera::Singleton().pitch < -89.0f)
+              camera::Singleton().pitch = -89.0f;
+            if (camera::Singleton().yaw > 180.0f)
+              camera::Singleton().yaw -= 360.0f;
+            if (camera::Singleton().yaw < -180.0f)
+              camera::Singleton().yaw += 360.0f;
+            camera::Singleton().updateCameraVectors();
+
+#ifndef NDEBUG
+            printf("[ window ] DEBUG: glfwSetCursorPosCallback triggered: "
+                   "offset(%.2f,%.2f)\n",
+                   xoffset, yoffset);
+            printf("[ window ] DEBUG: camera(yaw: %.2f, pitch: %.2f)\n",
+                   camera::Singleton().yaw, camera::Singleton().pitch);
+            printf("[ window ] DEBUG: camera(front(%.2f,%.2f,%.2f), "
+                   "right(%.2f,%.2f,%.2f), up(%.2f,%.2f,%.2f))\n",
+                   camera::Singleton().front.x, camera::Singleton().front.y,
+                   camera::Singleton().front.z, camera::Singleton().right.x,
+                   camera::Singleton().right.y, camera::Singleton().right.z,
+                   camera::Singleton().up.x, camera::Singleton().up.y,
+                   camera::Singleton().up.z);
+#endif
+          }
+        });
   };
 
   registerLogicUpdateCallback();
   registerGLFWCallback();
 
-  // vertices of a heart shape
-  // vertex vertices[] = {
-  //     // CW
-  //     {{-.3f, -.5f}, {1.f, 0.f, 0.f, 1.f}},
-  //     {{+.0f, -.2f}, {1.f, 0.f, 0.f, 1.f}},
-  //     {{-.6f, -.2f}, {1.f, 0.f, 0.f, 1.f}},
-  //
-  //     {{+.3f, -.5f}, {1.f, 0.f, 0.f, 1.f}},
-  //     {{+.6f, -.2f}, {1.f, 0.f, 0.f, 1.f}},
-  //     {{+.0f, -.2f}, {1.f, 0.f, 0.f, 1.f}},
-  //
-  //     {{+.0f, +.8f}, {1.f, 0.f, 0.f, 1.f}},
-  //     {{-.6f, -.2f}, {1.f, 0.f, 0.f, 1.f}},
-  //     {{+.6f, -.2f}, {1.f, 0.f, 0.f, 1.f}},
-  // };
   vertex vertices[] = {
       // Front face (CW order)
       {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f}},
@@ -346,16 +431,6 @@ void window::run() {
       20, 21, 22, 22, 23, 20, // Bottom face
   };
 
-  camera cam;
-  entity cube(glm::vec3(0.f, 0.f, -2.f));
-  cube.scale = glm::vec3(0.5f, 0.5f, 0.5f);
-
-  MVP mvp;
-  mvp.model = cube.getModelMatrix();
-  mvp.view = cam.getViewMatrix();
-  mvp.projection = cam.getProjectionMatrix((float)currentSize.width /
-                                           (float)currentSize.height);
-
   vulkanWrapper::vertexBuffer verticesBuffer(sizeof vertices);
   verticesBuffer.TransferData(vertices, sizeof vertices);
 
@@ -363,7 +438,38 @@ void window::run() {
   indexBuffer.TransferData(indices, sizeof indices);
 
   vulkanWrapper::uniformBuffer ubo_mvp(sizeof(glm::mat4) * 3);
-  ubo_mvp.TransferData(&mvp, sizeof(MVP));
+
+  VkDescriptorSetLayoutBinding descriptorSetLayoutBinding_trianglePosition = {
+      .binding = 0, // 描述符被绑定到0号binding
+      .descriptorType =
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
+      .descriptorCount = 1,                  // 个数是1个
+      .stageFlags =
+          VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
+  };
+  VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo_3d = {
+      .bindingCount = 1,
+      .pBindings = &descriptorSetLayoutBinding_trianglePosition};
+  descriptorSetLayout_3dMVP.Create(descriptorSetLayoutCreateInfo_3d);
+
+  std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}};
+  vulkanWrapper::descriptorPool descriptorPool(1, descriptorPoolSizes);
+  vulkanWrapper::descriptorSet descriptorSet_3dMVP;
+
+  std::vector<VkDescriptorSet> descriptorSets = {descriptorSet_3dMVP};
+  std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
+      descriptorSetLayout_3dMVP};
+  descriptorPool.AllocateSets(descriptorSets, descriptorSetLayouts);
+  descriptorSet_3dMVP = descriptorSets[0];
+
+  VkDescriptorBufferInfo bufferInfo = {
+      .buffer = ubo_mvp,
+      .offset = 0,
+      .range = sizeof(MVP) // 或VK_WHOLE_SIZE
+  };
+  std::vector<VkDescriptorBufferInfo> bufferInfos = {bufferInfo};
+  descriptorSet_3dMVP.Write(bufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
   const renderPassWithFramebuffers &rpwf = RenderPassAndFramebuffers();
   const vulkanWrapper::renderPass &renderPass = rpwf.renderPass;
@@ -385,7 +491,7 @@ void window::run() {
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
   commandPool.AllocateBuffers(commandBuffer);
 
-  auto color = color::floatRGBA(101, 101, 101, 255);
+  auto color = color::floatRGBA(0, 0, 0, 255);
   VkClearValue clearColor = {.color = {std::get<0>(color), std::get<1>(color),
                                        std::get<2>(color),
                                        std::get<3>(color)}}; // 灰色
@@ -408,13 +514,23 @@ void window::run() {
                         {{}, {framebuffers[i].Size()}}, clearValues,
                         VK_SUBPASS_CONTENTS_INLINE);
 
+    // TransferData
     verticesBuffer.TransferData(vertices, sizeof vertices);
+    MVP mvp = {.model = cube.getModelMatrix(),
+               .view = camera::Singleton().getViewMatrix(),
+               .projection = camera::Singleton().getProjectionMatrix(
+                   (float)currentSize.width / (float)currentSize.height)};
+    ubo_mvp.TransferData(&mvp, sizeof(MVP));
+
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       pipeline_cube);
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, verticesBuffer.Address(),
                            &offset);
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            layout_cube, 0, 1, descriptorSet_3dMVP.Address(), 0,
+                            nullptr);
     vkCmdDrawIndexed(commandBuffer, 36, 1, 0, 0, 0);
 
     renderPass.CmdEnd(commandBuffer);

@@ -57,8 +57,9 @@ void vulkanWrapper::descriptorSet::Write(
   Write(bufferViews, descriptorType, dstBinding, dstArrayElement);
 }
 // Static Function
-static void Update(std::vector<VkWriteDescriptorSet> writes,
-                   std::vector<VkCopyDescriptorSet> copies = {}) {
+void vulkanWrapper::descriptorSet::Update(
+    std::vector<VkWriteDescriptorSet> writes,
+    std::vector<VkCopyDescriptorSet> copies) {
   for (auto &i : writes)
     i.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   for (auto &i : copies)
@@ -67,8 +68,8 @@ static void Update(std::vector<VkWriteDescriptorSet> writes,
                          writes.data(), copies.size(), copies.data());
 }
 
-static void Update(VkWriteDescriptorSet write,
-                   std::vector<VkCopyDescriptorSet> copies = {}) {
+void vulkanWrapper::descriptorSet::Update(
+    VkWriteDescriptorSet write, std::vector<VkCopyDescriptorSet> copies) {
   // HACK: copy instead of convert
   Update(std::vector<VkWriteDescriptorSet>{write}, copies);
 }

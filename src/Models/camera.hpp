@@ -66,4 +66,32 @@ public:
     glm::mat4 projection = getProjectionMatrix(aspectRatio);
     return projection * view * model;
   }
+
+  inline void forward(float distance) { position += front * distance; }
+  inline void rightward(float distance) { position += right * distance; }
+  inline void upward(float distance) { position += up * distance; }
+
+  inline void horizentalForward(float distance) {
+    position += glm::normalize(glm::vec3(front.x, 0.0f, front.z)) * distance;
+  }
+  inline void horizentalRightward(float distance) {
+    position += glm::normalize(glm::vec3(right.x, 0.0f, right.z)) * distance;
+  }
+  inline void verticalUpward(float distance) {
+    position -= defaultUp * distance;
+  }
+
+  inline void updateCameraVectors() {
+    front = glm::vec3(cos(glm::radians(yaw)) * cos(glm::radians(pitch)),
+                      sin(glm::radians(pitch)),
+                      sin(glm::radians(yaw)) * cos(glm::radians(pitch)));
+    front = glm::normalize(front);
+    right = glm::normalize(glm::cross(front, defaultUp));
+    up = glm::normalize(glm::cross(right, front));
+  }
+
+  inline static camera &Singleton() {
+    static camera instance;
+    return instance;
+  }
 };

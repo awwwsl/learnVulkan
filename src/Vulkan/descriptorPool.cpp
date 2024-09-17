@@ -21,8 +21,8 @@ vulkanWrapper::descriptorPool::~descriptorPool() {
 }
 // Const Function
 VkResultThrowable vulkanWrapper::descriptorPool::AllocateSets(
-    std::vector<VkDescriptorSet> sets,
-    std::vector<VkDescriptorSetLayout> setLayouts) const {
+    std::vector<VkDescriptorSet> &sets,
+    std::vector<VkDescriptorSetLayout> &setLayouts) const {
   if (sets.size() != setLayouts.size()) {
     if (sets.size() < setLayouts.size()) {
       printf(
@@ -45,27 +45,28 @@ VkResultThrowable vulkanWrapper::descriptorPool::AllocateSets(
     printf("[ descriptorPool ] ERROR: Failed to allocate "
            "descriptor sets!\nError code: %d\n",
            int32_t(result));
+
   return result;
 }
 VkResultThrowable vulkanWrapper::descriptorPool::AllocateSets(
-    std::vector<VkDescriptorSet> sets,
-    std::vector<descriptorSetLayout> setLayouts) const {
+    std::vector<VkDescriptorSet> &sets,
+    std::vector<descriptorSetLayout> &setLayouts) const {
   std::vector<VkDescriptorSetLayout> vkSetLayouts(setLayouts.size());
   for (size_t i = 0; i < setLayouts.size(); i++)
     vkSetLayouts[i] = setLayouts[i];
   return AllocateSets(sets, vkSetLayouts);
 }
 VkResultThrowable vulkanWrapper::descriptorPool::AllocateSets(
-    std::vector<descriptorSet> sets,
-    std::vector<VkDescriptorSetLayout> setLayouts) const {
+    std::vector<descriptorSet> &sets,
+    std::vector<VkDescriptorSetLayout> &setLayouts) const {
   std::vector<VkDescriptorSet> vkSets(sets.size());
   for (size_t i = 0; i < sets.size(); i++)
     vkSets[i] = sets[i];
   return AllocateSets(vkSets, setLayouts);
 }
 VkResultThrowable vulkanWrapper::descriptorPool::AllocateSets(
-    std::vector<descriptorSet> sets,
-    std::vector<descriptorSetLayout> setLayouts) const {
+    std::vector<descriptorSet> &sets,
+    std::vector<descriptorSetLayout> &setLayouts) const {
   std::vector<VkDescriptorSet> vkSets(sets.size());
   std::vector<VkDescriptorSetLayout> vkSetLayouts(setLayouts.size());
   for (size_t i = 0; i < sets.size(); i++)
@@ -75,15 +76,15 @@ VkResultThrowable vulkanWrapper::descriptorPool::AllocateSets(
   return AllocateSets(vkSets, vkSetLayouts);
 }
 VkResultThrowable vulkanWrapper::descriptorPool::FreeSets(
-    std::vector<VkDescriptorSet> sets) const {
+    std::vector<VkDescriptorSet> &sets) const {
   VkResult result = vkFreeDescriptorSets(graphic::Singleton().Device(), handle,
                                          sets.size(), sets.data());
   memset(sets.data(), 0, sets.size() * sizeof(VkDescriptorSet));
   return result; // Though vkFreeDescriptorSets(...) can only return
                  // VK_SUCCESS
 }
-VkResultThrowable
-vulkanWrapper::descriptorPool::FreeSets(std::vector<descriptorSet> sets) const {
+VkResultThrowable vulkanWrapper::descriptorPool::FreeSets(
+    std::vector<descriptorSet> &sets) const {
   std::vector<VkDescriptorSet> vkSets(sets.size());
   for (size_t i = 0; i < sets.size(); i++)
     vkSets[i] = sets[i];
