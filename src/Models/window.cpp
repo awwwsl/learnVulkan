@@ -37,8 +37,6 @@ struct alignas(16) MVP {
   glm::mat4 projection;
 };
 
-vulkanWrapper::descriptorSetLayout descriptorSetLayout_3dMVP;
-
 window::window() {}
 
 bool window::initialize() {
@@ -151,7 +149,9 @@ const renderPassWithFramebuffers &RenderPassAndFramebuffers() {
   return rpwf;
 }
 
-const void CreateLayout(vulkanWrapper::pipelineLayout &layout) {
+const void
+CreateLayout(vulkanWrapper::pipelineLayout &pipelineLayout,
+             vulkanWrapper::descriptorSetLayout &descriptorSetLayout) {
   VkDescriptorSetLayoutBinding descriptorSetLayoutBinding_3dMVP = {
       .binding = 0, // 描述符被绑定到0号binding
       .descriptorType =
@@ -162,10 +162,10 @@ const void CreateLayout(vulkanWrapper::pipelineLayout &layout) {
   };
   VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo_3dMVP = {
       .bindingCount = 1, .pBindings = &descriptorSetLayoutBinding_3dMVP};
-  descriptorSetLayout_3dMVP.Create(descriptorSetLayoutCreateInfo_3dMVP);
+  descriptorSetLayout.Create(descriptorSetLayoutCreateInfo_3dMVP);
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-      .setLayoutCount = 1, .pSetLayouts = descriptorSetLayout_3dMVP.Address()};
-  layout.Create(pipelineLayoutCreateInfo);
+      .setLayoutCount = 1, .pSetLayouts = descriptorSetLayout.Address()};
+  pipelineLayout.Create(pipelineLayoutCreateInfo);
 }
 
 const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
@@ -364,18 +364,18 @@ void window::run() {
             camera::Singleton().updateCameraVectors();
 
 #ifndef NDEBUG
-            printf("[ window ] DEBUG: glfwSetCursorPosCallback triggered: "
-                   "offset(%.2f,%.2f)\n",
-                   xoffset, yoffset);
-            printf("[ window ] DEBUG: camera(yaw: %.2f, pitch: %.2f)\n",
-                   camera::Singleton().yaw, camera::Singleton().pitch);
-            printf("[ window ] DEBUG: camera(front(%.2f,%.2f,%.2f), "
-                   "right(%.2f,%.2f,%.2f), up(%.2f,%.2f,%.2f))\n",
-                   camera::Singleton().front.x, camera::Singleton().front.y,
-                   camera::Singleton().front.z, camera::Singleton().right.x,
-                   camera::Singleton().right.y, camera::Singleton().right.z,
-                   camera::Singleton().up.x, camera::Singleton().up.y,
-                   camera::Singleton().up.z);
+        // printf("[ window ] DEBUG: glfwSetCursorPosCallback triggered: "
+        //        "offset(%.2f,%.2f)\n",
+        //        xoffset, yoffset);
+        // printf("[ window ] DEBUG: camera(yaw: %.2f, pitch: %.2f)\n",
+        //        camera::Singleton().yaw, camera::Singleton().pitch);
+        // printf("[ window ] DEBUG: camera(front(%.2f,%.2f,%.2f), "
+        //        "right(%.2f,%.2f,%.2f), up(%.2f,%.2f,%.2f))\n",
+        //        camera::Singleton().front.x, camera::Singleton().front.y,
+        //        camera::Singleton().front.z, camera::Singleton().right.x,
+        //        camera::Singleton().right.y, camera::Singleton().right.z,
+        //        camera::Singleton().up.x, camera::Singleton().up.y,
+        //        camera::Singleton().up.z);
 #endif
           }
         });
@@ -439,18 +439,18 @@ void window::run() {
 
   vulkanWrapper::uniformBuffer ubo_mvp(sizeof(glm::mat4) * 3);
 
-  VkDescriptorSetLayoutBinding descriptorSetLayoutBinding_trianglePosition = {
-      .binding = 0, // 描述符被绑定到0号binding
-      .descriptorType =
-          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
-      .descriptorCount = 1,                  // 个数是1个
-      .stageFlags =
-          VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
-  };
-  VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo_3d = {
-      .bindingCount = 1,
-      .pBindings = &descriptorSetLayoutBinding_trianglePosition};
-  descriptorSetLayout_3dMVP.Create(descriptorSetLayoutCreateInfo_3d);
+  vulkanWrapper::pipelineLayout layout_cube;
+  vulkanWrapper::pipeline pipeline_cube;
+
+  vulkanWrapper::descriptorSetLayout descriptorSetLayout_3dMVP;
+
+  const renderPassWithFramebuffers &rpwf = RenderPassAndFramebuffers();
+  const vulkanWrapper::renderPass &renderPass = rpwf.renderPass;
+  const std::vector<vulkanWrapper::framebuffer> &framebuffers =
+      rpwf.framebuffers;
+
+  CreateLayout(layout_cube, descriptorSetLayout_3dMVP);
+  CreatePipeline(pipeline_cube, layout_cube);
 
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}};
@@ -470,16 +470,6 @@ void window::run() {
   };
   std::vector<VkDescriptorBufferInfo> bufferInfos = {bufferInfo};
   descriptorSet_3dMVP.Write(bufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-
-  const renderPassWithFramebuffers &rpwf = RenderPassAndFramebuffers();
-  const vulkanWrapper::renderPass &renderPass = rpwf.renderPass;
-  const std::vector<vulkanWrapper::framebuffer> &framebuffers =
-      rpwf.framebuffers;
-  vulkanWrapper::pipelineLayout layout_cube;
-  vulkanWrapper::pipeline pipeline_cube;
-
-  CreateLayout(layout_cube);
-  CreatePipeline(pipeline_cube, layout_cube);
 
   vulkanWrapper::fence fence(VK_FENCE_CREATE_SIGNALED_BIT);
   vulkanWrapper::semaphore semaphore_imageAvailable;
