@@ -233,68 +233,76 @@ void window::run() {
       glfwSetWindowTitle(glfwWindow, info.str().c_str());
     });
 
-    updatePerPeriod(std::chrono::milliseconds(20), [this](int, double) {
-      bool windowSpeeding =
-          glfwGetKey(glfwWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS;
-      bool movementSpeeding =
-          glfwGetKey(glfwWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS;
+    static const constexpr int callbackInterval = 5;
+    updatePerPeriod(
+        std::chrono::milliseconds(callbackInterval), [this](int, double) {
+          bool windowSpeeding =
+              glfwGetKey(glfwWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS;
+          bool movementSpeeding =
+              glfwGetKey(glfwWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS;
 
-      if (glfwGetKey(glfwWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
-        glfwSetWindowShouldClose(glfwWindow, GLFW_TRUE);
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
-        glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT_SHIFT) == GLFW_RELEASE) {
-        glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
-        currentPosition.y += 10 * ((windowSpeeding) ? 5 : 1);
-        // printf("Down\n");
-        MakeWindowWindowed(currentPosition, currentSize);
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_UP) == GLFW_PRESS) {
-        currentPosition.y -= 10 * ((windowSpeeding) ? 5 : 1);
-        // printf("Up\n");
-        MakeWindowWindowed(currentPosition, currentSize);
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT) == GLFW_PRESS) {
-        currentPosition.x -= 10 * ((windowSpeeding) ? 5 : 1);
-        // printf("Left\n");
-        MakeWindowWindowed(currentPosition, currentSize);
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-        currentPosition.x += 10 * ((windowSpeeding) ? 5 : 1);
-        // printf("Right\n");
-        MakeWindowWindowed(currentPosition, currentSize);
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_W) == GLFW_PRESS) {
-        camera::Singleton().horizentalForward(.05f *
-                                              (movementSpeeding ? 5 : 1));
-        // printf("W\n");
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_S) == GLFW_PRESS) {
-        camera::Singleton().horizentalForward(-.05f *
-                                              (movementSpeeding ? 5 : 1));
-        // printf("S\n");
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_A) == GLFW_PRESS) {
-        camera::Singleton().horizentalRightward(-.05f *
-                                                (movementSpeeding ? 5 : 1));
-        // printf("A\n");
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_D) == GLFW_PRESS) {
-        camera::Singleton().horizentalRightward(.05f *
-                                                (movementSpeeding ? 5 : 1));
-        // printf("D\n");
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
-        camera::Singleton().verticalUpward(.05f * (movementSpeeding ? 5 : 1));
-      }
-      if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-        camera::Singleton().verticalUpward(-.05f * (movementSpeeding ? 5 : 1));
-      }
-    });
+          if (glfwGetKey(glfwWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+            glfwSetWindowShouldClose(glfwWindow, GLFW_TRUE);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
+            glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT_SHIFT) == GLFW_RELEASE) {
+            glfwSetInputMode(glfwWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_DOWN) == GLFW_PRESS) {
+            currentPosition.y +=
+                10 * ((windowSpeeding) ? 5 : 1) * callbackInterval / 20.f;
+            // printf("Down\n");
+            MakeWindowWindowed(currentPosition, currentSize);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_UP) == GLFW_PRESS) {
+            currentPosition.y -=
+                10 * ((windowSpeeding) ? 5 : 1) * callbackInterval / 20.f;
+            // printf("Up\n");
+            MakeWindowWindowed(currentPosition, currentSize);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT) == GLFW_PRESS) {
+            currentPosition.x -=
+                10 * ((windowSpeeding) ? 5 : 1) * callbackInterval / 20.f;
+            // printf("Left\n");
+            MakeWindowWindowed(currentPosition, currentSize);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+            currentPosition.x +=
+                10 * ((windowSpeeding) ? 5 : 1) * callbackInterval / 20.f;
+            // printf("Right\n");
+            MakeWindowWindowed(currentPosition, currentSize);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_W) == GLFW_PRESS) {
+            camera::Singleton().horizentalForward(
+                .05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+            // printf("W\n");
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_S) == GLFW_PRESS) {
+            camera::Singleton().horizentalForward(
+                -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+            // printf("S\n");
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_A) == GLFW_PRESS) {
+            camera::Singleton().horizentalRightward(
+                -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+            // printf("A\n");
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_D) == GLFW_PRESS) {
+            camera::Singleton().horizentalRightward(
+                .05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+            // printf("D\n");
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
+            camera::Singleton().verticalUpward(
+                .05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+            camera::Singleton().verticalUpward(
+                -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+          }
+        });
 
     updatePerPeriod(std::chrono::milliseconds(10000), [this](int, double) {
       printf("Position: (%d, %d)\n", currentPosition.x, currentPosition.y);
