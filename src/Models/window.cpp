@@ -17,6 +17,7 @@
 #include "window.hpp"
 
 #include <sstream>
+#include <thread>
 #include <vector>
 
 #include <GLFW/glfw3.h>
@@ -143,8 +144,7 @@ bool window::initialize() {
   return true;
 }
 
-void BootScreen(const char *imagePath, VkFormat imageFormat) {
-
+void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
   VkExtent2D imageExtent;
   std::unique_ptr<uint8_t[]> pImageData =
       vulkanWrapper::texture2d::LoadFile_FileSystem(
@@ -164,7 +164,7 @@ void BootScreen(const char *imagePath, VkFormat imageFormat) {
   commandPool.AllocateBuffers(commandBuffer);
 
   auto target = glfwGetTime() + 3;
-  while (glfwGetTime() < target) {
+  while (glfwGetTime() < target || *pLoading) {
     graphic::Singleton().SwapImage(semaphore_imageIsAvailable);
     commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VkExtent2D swapchainImageSize =
@@ -291,6 +291,8 @@ void BootScreen(const char *imagePath, VkFormat imageFormat) {
 
   std::vector<vulkanWrapper::commandBuffer *> buffers = {&commandBuffer};
   commandPool.FreeBuffers(buffers);
+
+  printf("[ window ] INFO: BootScreen finished\n");
 }
 
 const rpwfUtils::renderPassWithFramebuffers &RenderPassAndFramebuffers() {
@@ -390,10 +392,10 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
 
 void window::run() {
 
-  BootScreen("/home/awwwsl/desktop.png", VK_FORMAT_R8G8B8A8_UNORM);
-
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  printf("[ window ] INFO: BootScreen finished\n");
+  bool loading = true;
+  bool *pLoading = &loading;
+  std::thread BootScreenThread(BootScreen, "/home/awwwsl/desktop.png",
+                               VK_FORMAT_R8G8B8A8_UNORM, pLoading);
   const static auto registerLogicUpdateCallback = [this]() {
     updatePerPeriod(std::chrono::seconds(1), [this](int dframe, double dt) {
       std::stringstream info;
@@ -716,6 +718,9 @@ void window::run() {
                                        std::get<3>(color)}}; // 灰色
   VkClearValue depthClear = {.depthStencil = {1.f, 0}};
   std::vector<VkClearValue> clearValues = {clearColor, depthClear};
+
+  loading = false;
+  BootScreenThread.join();
 
   MVP mvp;
   mvp.model = glm::mat4(1.0f);
