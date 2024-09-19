@@ -1,3 +1,4 @@
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #ifndef LIMIT_FRAME_RATE
@@ -16,6 +17,7 @@
 #include "rpwfUtils.hpp"
 #include "window.hpp"
 
+#include <iostream>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -106,6 +108,7 @@ bool window::initialize() {
     }
   }
 
+  graphic::Plus();
   while (true) {
     printf("[ window ] HINT: Please select a device: ");
     int deviceIndex = 0;
@@ -164,6 +167,7 @@ void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
   commandPool.AllocateBuffers(commandBuffer);
 
   auto target = glfwGetTime() + 3;
+  VkImage image;
   while (glfwGetTime() < target || *pLoading) {
     graphic::Singleton().SwapImage(semaphore_imageIsAvailable);
     commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
@@ -175,9 +179,8 @@ void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
         imageFormat != graphic::Singleton().SwapchainCreateInfo().imageFormat;
     vulkanWrapper::imageMemory imageMemory;
     if (blit) { // image needs blit
-      VkImage image =
-          vulkanWrapper::stagingBuffer::AliasedImage2d_CurrentThread(
-              imageFormat, imageExtent);
+      image = vulkanWrapper::stagingBuffer::AliasedImage2d_CurrentThread(
+          imageFormat, imageExtent);
       if (image) { // image exists
         VkImageMemoryBarrier imageMemoryBarrier = {
             VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -270,6 +273,7 @@ void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
           commandBuffer, vulkanWrapper::stagingBuffer::Buffer_CurrentThread(),
           graphic::Singleton().SwapchainImage(
               graphic::Singleton().CurrentImageIndex()),
+
           region_copy,
           {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED},
           {VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0,
@@ -301,25 +305,6 @@ const rpwfUtils::renderPassWithFramebuffers &RenderPassAndFramebuffers() {
       rpwfUtils::CreateRpwf_ScreenWithDS(VK_FORMAT_D24_UNORM_S8_UINT,
                                          dsas_screenWithDS);
   return rpwf;
-}
-
-const void
-CreateLayout(vulkanWrapper::pipelineLayout &pipelineLayout,
-             vulkanWrapper::descriptorSetLayout &descriptorSetLayout) {
-  VkDescriptorSetLayoutBinding descriptorSetLayoutBinding_3dMVP = {
-      .binding = 0, // 描述符被绑定到0号binding
-      .descriptorType =
-          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
-      .descriptorCount = 1,                  // 个数是1个
-      .stageFlags =
-          VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
-  };
-  VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo_3dMVP = {
-      .bindingCount = 1, .pBindings = &descriptorSetLayoutBinding_3dMVP};
-  descriptorSetLayout.Create(descriptorSetLayoutCreateInfo_3dMVP);
-  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-      .setLayoutCount = 1, .pSetLayouts = descriptorSetLayout.Address()};
-  pipelineLayout.Create(pipelineLayoutCreateInfo);
 }
 
 const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
@@ -390,12 +375,23 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
   Create();
 }
 
-void window::run() {
+void CreateSampler(vulkanWrapper::sampler &sampler) {
+  VkSamplerCreateInfo info = vulkanWrapper::texture::SamplerCreateInfo();
+  info.minFilter = VK_FILTER_NEAREST;
+  info.magFilter = VK_FILTER_NEAREST;
+  sampler.Create(info);
+}
 
+void window::run() {
   bool loading = true;
   bool *pLoading = &loading;
   std::thread BootScreenThread(BootScreen, "/home/awwwsl/desktop.png",
                                VK_FORMAT_R8G8B8A8_UNORM, pLoading);
+#ifndef NDEBUG
+  auto id = BootScreenThread.get_id();
+  std::cout << "[ window ] DEBUG: BootScreenThread id: " << id << std::endl;
+#endif
+
   const static auto registerLogicUpdateCallback = [this]() {
     updatePerPeriod(std::chrono::seconds(1), [this](int dframe, double dt) {
       std::stringstream info;
@@ -669,10 +665,10 @@ void window::run() {
 
   vulkanWrapper::uniformBuffer ubo_mvp(sizeof(glm::mat4) * 3);
 
-  vulkanWrapper::pipelineLayout layout_cube;
-  vulkanWrapper::pipeline pipeline_cube;
+  vulkanWrapper::pipelineLayout mainPipelineLayout;
+  vulkanWrapper::pipeline mainPipeline;
 
-  vulkanWrapper::descriptorSetLayout descriptorSetLayout_3dMVP;
+  vulkanWrapper::descriptorSetLayout descSetLayout;
 
   const rpwfUtils::renderPassWithFramebuffers &rpwf =
       RenderPassAndFramebuffers();
@@ -680,27 +676,70 @@ void window::run() {
   const std::vector<vulkanWrapper::framebuffer> &framebuffers =
       rpwf.framebuffers;
 
-  CreateLayout(layout_cube, descriptorSetLayout_3dMVP);
-  CreatePipeline(pipeline_cube, layout_cube);
+  std::vector<VkDescriptorSetLayoutBinding> bindings;
+  VkDescriptorSetLayoutBinding uboDescriptorSetLayoutBinding = {
+      .binding = 0, // 描述符被绑定到0号binding
+      .descriptorType =
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
+      .descriptorCount = 1,                  // 个数是1个
+      .stageFlags =
+          VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
+  };
+  VkDescriptorSetLayoutBinding textureDescriptorSetLayoutBinding = {
+      .binding = 1,
+      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      .descriptorCount = 1,
+      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT};
+
+  bindings.push_back(uboDescriptorSetLayoutBinding);
+  bindings.push_back(textureDescriptorSetLayoutBinding);
+
+  const uint32_t bindingCount = bindings.size();
+  VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+      .bindingCount = bindingCount, .pBindings = bindings.data()};
+  descSetLayout.Create(descriptorSetLayoutCreateInfo);
+
+  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+      .setLayoutCount = 1, .pSetLayouts = descSetLayout.Address()};
+  mainPipelineLayout.Create(pipelineLayoutCreateInfo);
+
+  CreatePipeline(mainPipeline, mainPipelineLayout);
 
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
-      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1}};
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+  };
   vulkanWrapper::descriptorPool descriptorPool(1, descriptorPoolSizes);
-  vulkanWrapper::descriptorSet descriptorSet_3dMVP;
 
-  std::vector<VkDescriptorSet> descriptorSets = {descriptorSet_3dMVP};
-  std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
-      descriptorSetLayout_3dMVP};
-  descriptorPool.AllocateSets(descriptorSets, descriptorSetLayouts);
-  descriptorSet_3dMVP = descriptorSets[0];
+  vulkanWrapper::descriptorSet descSet;
+
+  std::vector<VkDescriptorSet> descSetAllocateTransfer = {descSet};
+  std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {descSetLayout};
+
+  descriptorPool.AllocateSets(descSetAllocateTransfer, descriptorSetLayouts);
+  descSet = descSetAllocateTransfer[0];
+
+  vulkanWrapper::sampler sampler;
+  CreateSampler(sampler);
+
+  vulkanWrapper::texture2d texture("/home/awwwsl/code/learn/cpp/learnVulkan/"
+                                   "res/vulkanCraft/texture/lapis_block.png",
+                                   VK_FORMAT_R8G8B8A8_UNORM,
+                                   VK_FORMAT_R8G8B8A8_UNORM, true);
 
   VkDescriptorBufferInfo bufferInfo = {
       .buffer = ubo_mvp,
       .offset = 0,
       .range = sizeof(MVP) // 或VK_WHOLE_SIZE
   };
+  VkDescriptorImageInfo imageInfo = {
+      .sampler = sampler,
+      .imageView = texture.ImageView(),
+      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
   std::vector<VkDescriptorBufferInfo> bufferInfos = {bufferInfo};
-  descriptorSet_3dMVP.Write(bufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+  std::vector<VkDescriptorImageInfo> imageInfos = {imageInfo};
+  descSet.Write(bufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
+  descSet.Write(imageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
 
   vulkanWrapper::fence fence(VK_FENCE_CREATE_SIGNALED_BIT);
   vulkanWrapper::semaphore semaphore_imageAvailable;
@@ -747,7 +786,7 @@ void window::run() {
     ubo_mvp.TransferData(&mvp, sizeof(MVP));
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      pipeline_cube);
+                      mainPipeline);
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, verticesBuffer.Address(),
                            &offset);
@@ -756,7 +795,7 @@ void window::run() {
 
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            layout_cube, 0, 1, descriptorSet_3dMVP.Address(), 0,
+                            mainPipelineLayout, 0, 1, descSet.Address(), 0,
                             nullptr);
     vkCmdDrawIndexed(commandBuffer, 36, 2000, 0, 0, 0);
 

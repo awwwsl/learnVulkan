@@ -26,6 +26,7 @@ protected:
   void CreateImageView(VkImageViewType viewType, VkFormat format,
                        uint32_t mipLevelCount, uint32_t arrayLayerCount,
                        VkImageViewCreateFlags flags = 0);
+  ~texture();
 
 public:
   // Getter

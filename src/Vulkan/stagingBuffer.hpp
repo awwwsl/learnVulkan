@@ -5,6 +5,7 @@
 #include "bufferMemory.hpp"
 #include "image.hpp"
 
+#include <mutex>
 #include <shared_mutex>
 #include <thread>
 #include <unordered_map>
@@ -47,7 +48,9 @@ public:
   }
 
   static stagingBuffer &RegisterCurrentThread() {
-    buffersMutex.lock();
+    std::lock_guard<std::shared_mutex> lock(buffersMutex);
+    if (buffers.find(std::this_thread::get_id()) != buffers.end())
+      return *buffers[std::this_thread::get_id()];
     stagingBuffer *buffer = new stagingBuffer();
     buffers[std::this_thread::get_id()] = buffer;
     graphic ::Singleton().AddDestroyDeviceCallback([buffer]() {
@@ -86,6 +89,7 @@ public:
   static void ClearBuffers() {
     for (auto &buffer : buffers)
       buffer.second->Release();
+    buffers.clear();
   }
 };
 

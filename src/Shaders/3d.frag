@@ -2,8 +2,10 @@
 #pragma shader_stage(fragment)
 
 layout(location = 0) in  vec2 i_TexCoord;
+layout(binding  = 1) uniform sampler2D u_Texture;
+
 layout(location = 0) out vec4 o_Color;
 
 void main() {
-    o_Color = vec4(i_TexCoord, 0.0, 1.0);
+    o_Color = texture(u_Texture, i_TexCoord);
 }

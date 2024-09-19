@@ -6,6 +6,7 @@
 #include <stb/stb_image.h>
 
 vulkanWrapper::texture::texture() = default;
+vulkanWrapper::texture::~texture() = default;
 void vulkanWrapper::texture::CreateImageMemory(VkImageType imageType,
                                                VkFormat format,
                                                VkExtent3D extent,

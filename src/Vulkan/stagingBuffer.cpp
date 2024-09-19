@@ -13,7 +13,6 @@ std::unordered_map<std::thread::id, vulkanWrapper::stagingBuffer *>
 std::shared_mutex vulkanWrapper::stagingBuffer::buffersMutex;
 
 vulkanWrapper::stagingBuffer::stagingBuffer() {
-  buffers = {};
   buffers[std::this_thread::get_id()] = this;
 }
 vulkanWrapper::stagingBuffer::stagingBuffer(VkDeviceSize size) { Expand(size); }
@@ -33,7 +32,10 @@ void vulkanWrapper::stagingBuffer::Expand(VkDeviceSize size) {
                                              VK_BUFFER_USAGE_TRANSFER_DST_BIT};
   memory.Create(bufferCreateInfo, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 }
-void vulkanWrapper::stagingBuffer::Release() { memory.~bufferMemory(); }
+void vulkanWrapper::stagingBuffer::Release() {
+  memory.~bufferMemory();
+  aliasedImage.~image();
+}
 void *vulkanWrapper::stagingBuffer::MapMemory(VkDeviceSize size) {
   Expand(size);
   void *pData_dst = nullptr;

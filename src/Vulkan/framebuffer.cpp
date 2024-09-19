@@ -21,8 +21,10 @@ vulkanWrapper::framebuffer::Create(VkFramebufferCreateInfo &createInfo) {
            "framebuffer!\nError code: %d\n",
            int32_t(result));
 #ifndef NDEBUG
-  printf("[ framebuffer ] DEBUG: Framebuffer created with handle %p\n",
-         (void *)handle);
+  ThreadId(id);
+  printf("[ framebuffer ] [Thread: %s] DEBUG: Framebuffer created with handle "
+         "%p\n",
+         id.c_str(), (void *)handle);
 #endif
   return result;
 }

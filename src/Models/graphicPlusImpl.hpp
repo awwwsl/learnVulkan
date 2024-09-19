@@ -25,6 +25,8 @@ class graphicPlusImpl {
   graphicPlusImpl();
   ~graphicPlusImpl();
 
+  std::function<void()> CleanUpLambda;
+
 public:
   inline static graphicPlusImpl &Singleton() {
     static graphicPlusImpl instance;
@@ -48,4 +50,6 @@ public:
   inline const std::vector<VkFormatProperties> FormatProperties() const {
     return formatProperties;
   }
+
+  inline const void CleanUp() const { CleanUpLambda(); }
 };

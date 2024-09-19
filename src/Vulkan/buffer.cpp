@@ -42,9 +42,11 @@ vulkanWrapper::buffer::BindMemory(VkDeviceMemory deviceMemory,
                                   VkDeviceSize memoryOffset) const {
   VkResult result = vkBindBufferMemory(graphic::Singleton().Device(), handle,
                                        deviceMemory, memoryOffset);
-  if (result)
-    printf("[ buffer ] ERROR: Failed to attach the memory!\nError code: %d\n",
+  if (result) {
+    printf("[ buffer ] ERROR: Failed to attach the memory!\nError "
+           "code: %d\n",
            int32_t(result));
+  }
   return result;
 }
 // Non-const Function
@@ -57,7 +59,9 @@ vulkanWrapper::buffer::Create(VkBufferCreateInfo &createInfo) {
     printf("[ buffer ] ERROR: Failed to create a buffer!\nError code: %d\n",
            int32_t(result));
 #ifndef NDEBUG
-  printf("[ buffer ] Buffer created with handle %p\n", handle);
+  ThreadId(id)
+      printf("[ buffer ] [Thread: %s ] Buffer created with handle %p\n",
+             id.c_str(), handle);
 #endif
   return result;
 };

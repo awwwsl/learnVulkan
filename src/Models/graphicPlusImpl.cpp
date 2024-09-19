@@ -42,6 +42,7 @@ graphicPlusImpl::graphicPlusImpl() {
     Singleton().commandPool_presentation.~commandPool();
     Singleton().commandPool_compute.~commandPool();
   };
+  this->CleanUpLambda = CleanUp;
   graphic::Singleton().AddCreateDeviceCallback(Initialize);
   graphic::Singleton().AddDestroyDeviceCallback(CleanUp);
 }

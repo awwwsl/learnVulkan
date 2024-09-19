@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdio>
+#include <sstream>
+#include <thread>
 
 #ifndef NDEBUG
 #define DestroyHandleBy(Func, name)                                            \
@@ -56,3 +58,12 @@
     container.push_back(callback);                                             \
   }
 #endif
+
+#define ThreadId(var)                                                          \
+  std::string var;                                                             \
+  {                                                                            \
+    std::thread::id this_id = std::this_thread::get_id();                      \
+    std::ostringstream oss;                                                    \
+    oss << this_id;                                                            \
+    var = oss.str();                                                           \
+  }

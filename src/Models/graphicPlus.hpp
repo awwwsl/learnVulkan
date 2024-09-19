@@ -39,4 +39,6 @@ public:
 
   // 单例
   static graphicPlus &Singleton();
+
+  void cleanUp() const;
 };

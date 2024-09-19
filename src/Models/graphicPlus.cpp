@@ -39,3 +39,5 @@ VkResultThrowable graphicPlus::AcquireImageOwnership_Presentation(
   return impl->AcquireImageOwnership_Presentation(
       semaphore_renderingIsOver, semaphore_ownershipIsTransfered, fence);
 }
+
+void graphicPlus::cleanUp() const { impl->CleanUp(); }

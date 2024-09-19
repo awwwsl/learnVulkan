@@ -24,6 +24,7 @@
 #include "pipeline.hpp"
 #include "pipelineLayout.hpp"
 #include "renderPass.hpp"
+#include "sampler.hpp"
 #include "semaphore.hpp"
 #include "shader.hpp"
 #include "stagingBuffer.hpp"
