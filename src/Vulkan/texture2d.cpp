@@ -4,7 +4,8 @@
 void vulkanWrapper::texture2d::Create_Internal(VkFormat format_initial,
                                                VkFormat format_final,
                                                bool generateMipmap) {
-  uint32_t mipLevelCount = generateMipmap ? CalculateMipLevelCount(extent) : 1;
+  uint32_t mipLevelCount =
+      generateMipmap ? imageOperation::CalculateMipLevelCount(extent) : 1;
   // 创建图像并分配内存
   CreateImageMemory(VK_IMAGE_TYPE_2D, format_final,
                     {extent.width, extent.height, 1}, mipLevelCount, 1);
@@ -49,7 +50,7 @@ void vulkanWrapper::texture2d::Create(const char *filepath,
   formatInfo formatInfo = formatInfo::FormatInfo(
       format_initial); // 根据指定的format_initial取得格式信息
   std::unique_ptr<uint8_t[]> pImageData =
-      LoadFile_FileSystem(filepath, extent, formatInfo);
+      imageOperation::LoadFile_FileSystem(filepath, extent, formatInfo);
   if (pImageData)
     Create(pImageData.get(), extent, format_initial, format_final,
            generateMipmap);

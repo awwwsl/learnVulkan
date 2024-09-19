@@ -1,4 +1,7 @@
 #include "imageOperation.hpp"
+
+#include <stb/stb_image.h>
+
 #include <memory>
 
 void imageOperation::CmdCopyBufferToImage(
@@ -162,4 +165,71 @@ void imageOperation::CmdGenerateMipmap2d(VkCommandBuffer commandBuffer,
                          imb_to.stage, 0, 0, nullptr, 0, nullptr, 1,
                          &imageMemoryBarrier);
   }
+}
+
+// Method for handling const uint8_t* address
+[[nodiscard]]
+std::unique_ptr<uint8_t[]>
+imageOperation::LoadFile_MemoryAddress(const uint8_t *address, size_t fileSize,
+                                       VkExtent2D &extent,
+                                       formatInfo requiredFormatInfo) {
+  int &width = reinterpret_cast<int &>(extent.width);
+  int &height = reinterpret_cast<int &>(extent.height);
+  int channelCount;
+  void *pImageData = nullptr;
+
+  if (fileSize > INT32_MAX) {
+    printf("[ texture ] ERROR: Failed to load image data from the given "
+           "address! Data size must be less than 2G! Given size: %zu\n",
+           fileSize);
+    return {};
+  }
+
+  if (requiredFormatInfo.rawDataType == formatInfo::integer)
+    if (requiredFormatInfo.sizePerComponent == 1)
+      pImageData = stbi_load_from_memory(address, fileSize, &width, &height,
+                                         &channelCount,
+                                         requiredFormatInfo.componentCount);
+    else
+      pImageData = stbi_load_16_from_memory(address, fileSize, &width, &height,
+                                            &channelCount,
+                                            requiredFormatInfo.componentCount);
+  else
+    pImageData = stbi_loadf_from_memory(address, fileSize, &width, &height,
+                                        &channelCount,
+                                        requiredFormatInfo.componentCount);
+
+  if (!pImageData)
+    printf("[ texture ] ERROR: Failed to load image data "
+           "from the given address! Given address: %p\n",
+           address);
+
+  return std::unique_ptr<uint8_t[]>(static_cast<uint8_t *>(pImageData));
+}
+
+// Method for handling const char* address
+[[nodiscard]]
+std::unique_ptr<uint8_t[]>
+imageOperation::LoadFile_FileSystem(const char *address, VkExtent2D &extent,
+                                    formatInfo requiredFormatInfo) {
+  int &width = reinterpret_cast<int &>(extent.width);
+  int &height = reinterpret_cast<int &>(extent.height);
+  int channelCount;
+  void *pImageData = nullptr;
+
+  if (requiredFormatInfo.rawDataType == formatInfo::integer)
+    if (requiredFormatInfo.sizePerComponent == 1)
+      pImageData = stbi_load(address, &width, &height, &channelCount,
+                             requiredFormatInfo.componentCount);
+    else
+      pImageData = stbi_load_16(address, &width, &height, &channelCount,
+                                requiredFormatInfo.componentCount);
+  else
+    pImageData = stbi_loadf(address, &width, &height, &channelCount,
+                            requiredFormatInfo.componentCount);
+
+  if (!pImageData)
+    printf("[ texture ] ERROR: Failed to load the file: %s\n", address);
+
+  return std::unique_ptr<uint8_t[]>(static_cast<uint8_t *>(pImageData));
 }

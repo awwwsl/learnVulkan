@@ -149,9 +149,8 @@ bool window::initialize() {
 
 void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
   VkExtent2D imageExtent;
-  std::unique_ptr<uint8_t[]> pImageData =
-      vulkanWrapper::texture2d::LoadFile_FileSystem(
-          imagePath, imageExtent, formatInfo::FormatInfo(imageFormat));
+  std::unique_ptr<uint8_t[]> pImageData = imageOperation::LoadFile_FileSystem(
+      imagePath, imageExtent, formatInfo::FormatInfo(imageFormat));
   if (!pImageData)
     return;
   vulkanWrapper::stagingBuffer::BufferData_CurrentThread(
@@ -376,7 +375,7 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
 }
 
 void CreateSampler(vulkanWrapper::sampler &sampler) {
-  VkSamplerCreateInfo info = vulkanWrapper::texture::SamplerCreateInfo();
+  VkSamplerCreateInfo info = imageOperation::DefaultSamplerCreateInfo();
   info.minFilter = VK_FILTER_NEAREST;
   info.magFilter = VK_FILTER_NEAREST;
   sampler.Create(info);

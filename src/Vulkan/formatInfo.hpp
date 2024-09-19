@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <vulkan/vulkan_format_traits.hpp>
 
 struct formatInfo {
