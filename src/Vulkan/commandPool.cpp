@@ -17,7 +17,9 @@ vulkanWrapper::commandPool::Create(VkCommandPoolCreateInfo &createInfo) {
     printf("[ commandPool ] ERROR: Failed to create a "
            "command pool!\nError code: %d\n",
            int32_t(result));
-  printf("[ commandPool ] CommandPool created with handle %p\n", handle);
+#ifndef NDEBUG
+  printf("[ commandPool ] DEBUG: CommandPool created with handle %p\n", handle);
+#endif
   return result;
 }
 

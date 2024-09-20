@@ -477,6 +477,7 @@ VkResultThrowable graphic::CreateDevice(VkDeviceCreateFlags flags) {
   printf("[ graphicsBase ] INFO: Renderer driver version: %u\n",
          physicalDeviceProperties.driverVersion);
 
+#ifndef NDEBUG
   printf("[ graphicsBase ] DEBUG: Renderer limits: ");
 
   printf("maxImageDimension1D: %u ",
@@ -710,6 +711,7 @@ VkResultThrowable graphic::CreateDevice(VkDeviceCreateFlags flags) {
   printf("nonCoherentAtomSize: %lu",
          physicalDeviceProperties.limits.nonCoherentAtomSize);
   printf("\n");
+#endif
 
 #ifndef NDEBUG
   uint32_t extensionCount = 0;

@@ -48,12 +48,12 @@
 
 #ifndef NDEBUG
 #define AddCallback(container, callback, containerName)                        \
+  printf("[ %s ] DEBUG: Adding callback\n", containerName);                    \
   if (callback) {                                                              \
     container.push_back(callback);                                             \
   }
 #else
 #define AddCallback(container, callback, containerName)                        \
-  printf("[ %s ] DEBUG: Adding callback\n", containerName);                    \
   if (callback) {                                                              \
     container.push_back(callback);                                             \
   }
