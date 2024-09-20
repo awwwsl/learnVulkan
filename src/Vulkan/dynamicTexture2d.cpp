@@ -10,7 +10,8 @@
 void vulkanWrapper::dynamicTexture2d::Create(const char *filepath,
                                              VkFormat format_initial,
                                              VkFormat format_final,
-                                             bool generateMipmap) {
+                                             bool generateMipmap,
+                                             VkFilter blitFilter) {
   VkExtent2D extent;
   formatInfo formatInfo = formatInfo::FormatInfo(format_initial);
   uint32_t layerCount = 1;
@@ -19,25 +20,28 @@ void vulkanWrapper::dynamicTexture2d::Create(const char *filepath,
   extent.height /= layerCount;
   if (data) {
     Create(data.get(), extent, layerCount, format_initial, format_final,
-           generateMipmap);
+           generateMipmap, blitFilter);
   }
 }
 // 从内存读取文件数据
 void vulkanWrapper::dynamicTexture2d::Create(
     const uint8_t *pImageData, VkExtent2D extent, uint32_t layerCount,
-    VkFormat format_initial, VkFormat format_final, bool generateMipmap) {
+    VkFormat format_initial, VkFormat format_final, bool generateMipmap,
+    VkFilter blitFilter) {
   this->extent = extent;
   size_t imageSize =
       size_t(formatInfo::FormatInfo(format_initial).sizePerPixel) *
       extent.width * extent.height;
   stagingBuffer::BufferData_CurrentThread(pImageData, imageSize * layerCount);
-  Create_Internal(format_initial, format_final, generateMipmap, layerCount);
+  Create_Internal(format_initial, format_final, generateMipmap, layerCount,
+                  blitFilter);
 }
 
 void vulkanWrapper::dynamicTexture2d::Create_Internal(VkFormat format_initial,
                                                       VkFormat format_final,
                                                       bool generateMipmap,
-                                                      uint32_t layerCount) {
+                                                      uint32_t layerCount,
+                                                      VkFilter blitFilter) {
   uint32_t mipLevelCount =
       generateMipmap ? imageOperation::CalculateMipLevelCount(extent) : 1;
   // 创建图像并分配内存
@@ -51,12 +55,13 @@ void vulkanWrapper::dynamicTexture2d::Create_Internal(VkFormat format_initial,
   if (format_initial == format_final)
     imageOperation::CopyBlitAndGenerateMipmap2d(
         stagingBuffer::Buffer_CurrentThread(), memory.Image(), memory.Image(),
-        format_initial, extent, mipLevelCount, layerCount);
+        format_initial, extent, mipLevelCount, layerCount, blitFilter);
   else if (VkImage image_conversion =
                stagingBuffer::AliasedImage2d_CurrentThread(format_initial,
                                                            extent))
     imageOperation::BlitAndGenerateMipmap2d(image_conversion, memory.Image(),
-                                            extent, mipLevelCount, layerCount);
+                                            extent, mipLevelCount, layerCount,
+                                            blitFilter);
   else {
     VkImageCreateInfo imageCreateInfo = {
         .imageType = VK_IMAGE_TYPE_2D,
@@ -71,6 +76,7 @@ void vulkanWrapper::dynamicTexture2d::Create_Internal(VkFormat format_initial,
         imageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     imageOperation::CopyBlitAndGenerateMipmap2d(
         stagingBuffer::Buffer_CurrentThread(), imageMemory_conversion.Image(),
-        memory.Image(), format_initial, extent, mipLevelCount, layerCount);
+        memory.Image(), format_initial, extent, mipLevelCount, layerCount,
+        blitFilter);
   }
 }

@@ -112,8 +112,7 @@ bool window::initialize() {
   while (true) {
     printf("[ window ] HINT: Please select a device: ");
     int deviceIndex = 0;
-    deviceIndex = 0;
-    // scanf("%d", &deviceIndex);
+    scanf("%d", &deviceIndex);
 
     if (deviceIndex < 0 ||
         deviceIndex >= graphic::Singleton().AvailablePhysicalDeviceCount()) {
@@ -719,6 +718,7 @@ void window::run() {
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1},
   };
   vulkanWrapper::descriptorPool descriptorPool(1, descriptorPoolSizes);
 
@@ -736,11 +736,13 @@ void window::run() {
   vulkanWrapper::texture2d texture("/home/awwwsl/code/learn/cpp/learnVulkan/"
                                    "res/vulkanCraft/texture/lapis_block.png",
                                    VK_FORMAT_R8G8B8A8_UNORM,
-                                   VK_FORMAT_R8G8B8A8_UNORM, true);
+                                   VK_FORMAT_R8G8B8A8_UNORM, true,
+                                   VK_FILTER_NEAREST);
   vulkanWrapper::dynamicTexture2d dynamicTexture(
       "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
       "diamond_block.png",
-      VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, true);
+      VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, true,
+      VK_FILTER_NEAREST);
 
   VkDescriptorBufferInfo storageBufferInfo_instance = {
       .buffer = instanceBuffer,

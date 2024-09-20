@@ -3,7 +3,8 @@
 
 void vulkanWrapper::texture2d::Create_Internal(VkFormat format_initial,
                                                VkFormat format_final,
-                                               bool generateMipmap) {
+                                               bool generateMipmap,
+                                               VkFilter blitFilter) {
   uint32_t mipLevelCount =
       generateMipmap ? imageOperation::CalculateMipLevelCount(extent) : 1;
   // 创建图像并分配内存
@@ -15,12 +16,12 @@ void vulkanWrapper::texture2d::Create_Internal(VkFormat format_initial,
   if (format_initial == format_final)
     imageOperation::CopyBlitAndGenerateMipmap2d(
         stagingBuffer::Buffer_CurrentThread(), memory.Image(), memory.Image(),
-        format_initial, extent, mipLevelCount, 1);
+        format_initial, extent, mipLevelCount, 1, blitFilter);
   else if (VkImage image_conversion =
                stagingBuffer::AliasedImage2d_CurrentThread(format_initial,
                                                            extent))
-    imageOperation::BlitAndGenerateMipmap2d(image_conversion, memory.Image(),
-                                            extent, mipLevelCount, 1);
+    imageOperation::BlitAndGenerateMipmap2d(
+        image_conversion, memory.Image(), extent, mipLevelCount, 1, blitFilter);
   else {
     VkImageCreateInfo imageCreateInfo = {
         .imageType = VK_IMAGE_TYPE_2D,
@@ -45,7 +46,8 @@ vulkanWrapper::texture2d ::texture2d() = default;
 void vulkanWrapper::texture2d::Create(const char *filepath,
                                       VkFormat format_initial,
                                       VkFormat format_final,
-                                      bool generateMipmap) {
+                                      bool generateMipmap,
+                                      VkFilter blitFilter) {
   VkExtent2D extent;
   formatInfo formatInfo = formatInfo::FormatInfo(
       format_initial); // 根据指定的format_initial取得格式信息
@@ -53,14 +55,12 @@ void vulkanWrapper::texture2d::Create(const char *filepath,
       imageOperation::LoadFile_FileSystem(filepath, extent, formatInfo);
   if (pImageData)
     Create(pImageData.get(), extent, format_initial, format_final,
-           generateMipmap);
+           generateMipmap, blitFilter);
 }
 // 从内存读取文件数据
-void vulkanWrapper::texture2d::Create(const uint8_t *pImageData,
-                                      VkExtent2D extent,
-                                      VkFormat format_initial,
-                                      VkFormat format_final,
-                                      bool generateMipmap) {
+void vulkanWrapper::texture2d::Create(
+    const uint8_t *pImageData, VkExtent2D extent, VkFormat format_initial,
+    VkFormat format_final, bool generateMipmap, VkFilter blitFilter) {
   this->extent = extent;
   size_t imageDataSize =
       size_t(formatInfo::FormatInfo(format_initial).sizePerPixel) *
@@ -68,5 +68,5 @@ void vulkanWrapper::texture2d::Create(const uint8_t *pImageData,
   stagingBuffer::BufferData_CurrentThread(
       pImageData,
       imageDataSize); // 拷贝数据到暂存缓冲区
-  Create_Internal(format_initial, format_final, generateMipmap);
+  Create_Internal(format_initial, format_final, generateMipmap, blitFilter);
 }

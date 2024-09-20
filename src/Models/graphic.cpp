@@ -470,12 +470,246 @@ VkResultThrowable graphic::CreateDevice(VkDeviceCreateFlags flags) {
          physicalDeviceProperties.deviceName);
   printf("[ graphicsBase ] INFO: Renderer type: %d\n",
          physicalDeviceProperties.deviceType);
-  printf("[ graphicsBase ] INFO: Renderer API version: %d.%d.%d\n",
+  printf("[ graphicsBase ] INFO: Renderer API version: %u.%u.%u\n",
          uint32_t(VK_VERSION_MAJOR(physicalDeviceProperties.apiVersion)),
          uint32_t(VK_VERSION_MINOR(physicalDeviceProperties.apiVersion)),
          uint32_t(VK_VERSION_PATCH(physicalDeviceProperties.apiVersion)));
   printf("[ graphicsBase ] INFO: Renderer driver version: %u\n",
          physicalDeviceProperties.driverVersion);
+
+  printf("[ graphicsBase ] DEBUG: Renderer limits: ");
+
+  printf("maxImageDimension1D: %u ",
+         physicalDeviceProperties.limits.maxImageDimension1D);
+  printf("maxImageDimension2D: %u ",
+         physicalDeviceProperties.limits.maxImageDimension2D);
+  printf("maxImageDimension3D: %u ",
+         physicalDeviceProperties.limits.maxImageDimension3D);
+  printf("maxImageDimensionCube: %u ",
+         physicalDeviceProperties.limits.maxImageDimensionCube);
+  printf("maxImageArrayLayers: %u ",
+         physicalDeviceProperties.limits.maxImageArrayLayers);
+  printf("maxTexelBufferElements: %u ",
+         physicalDeviceProperties.limits.maxTexelBufferElements);
+  printf("maxUniformBufferRange: %u ",
+         physicalDeviceProperties.limits.maxUniformBufferRange);
+  printf("maxStorageBufferRange: %u ",
+         physicalDeviceProperties.limits.maxStorageBufferRange);
+  printf("maxPushConstantsSize: %u ",
+         physicalDeviceProperties.limits.maxPushConstantsSize);
+  printf("maxMemoryAllocationCount: %u ",
+         physicalDeviceProperties.limits.maxMemoryAllocationCount);
+  printf("maxSamplerAllocationCount: %u ",
+         physicalDeviceProperties.limits.maxSamplerAllocationCount);
+  printf("bufferImageGranularity: %lu ",
+         physicalDeviceProperties.limits.bufferImageGranularity);
+  printf("sparseAddressSpaceSize: %lu ",
+         physicalDeviceProperties.limits.sparseAddressSpaceSize);
+  printf("maxBoundDescriptorSets: %u ",
+         physicalDeviceProperties.limits.maxBoundDescriptorSets);
+  printf("maxPerStageDescriptorSamplers: %u ",
+         physicalDeviceProperties.limits.maxPerStageDescriptorSamplers);
+  printf("maxPerStageDescriptorUniformBuffers: %u ",
+         physicalDeviceProperties.limits.maxPerStageDescriptorUniformBuffers);
+  printf("maxPerStageDescriptorStorageBuffers: %u ",
+         physicalDeviceProperties.limits.maxPerStageDescriptorStorageBuffers);
+  printf("maxPerStageDescriptorSampledImages: %u ",
+         physicalDeviceProperties.limits.maxPerStageDescriptorSampledImages);
+  printf("maxPerStageDescriptorStorageImages: %u ",
+         physicalDeviceProperties.limits.maxPerStageDescriptorStorageImages);
+  printf("maxPerStageDescriptorInputAttachments: %u ",
+         physicalDeviceProperties.limits.maxPerStageDescriptorInputAttachments);
+  printf("maxPerStageResources: %u ",
+         physicalDeviceProperties.limits.maxPerStageResources);
+  printf("maxDescriptorSetSamplers: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetSamplers);
+  printf("maxDescriptorSetUniformBuffers: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetUniformBuffers);
+  printf("maxDescriptorSetUniformBuffersDynamic: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetUniformBuffersDynamic);
+  printf("maxDescriptorSetStorageBuffers: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetStorageBuffers);
+  printf("maxDescriptorSetStorageBuffersDynamic: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetStorageBuffersDynamic);
+  printf("maxDescriptorSetSampledImages: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetSampledImages);
+  printf("maxDescriptorSetStorageImages: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetStorageImages);
+  printf("maxDescriptorSetInputAttachments: %u ",
+         physicalDeviceProperties.limits.maxDescriptorSetInputAttachments);
+  printf("maxVertexInputAttributes: %u ",
+         physicalDeviceProperties.limits.maxVertexInputAttributes);
+  printf("maxVertexInputBindings: %u ",
+         physicalDeviceProperties.limits.maxVertexInputBindings);
+  printf("maxVertexInputAttributeOffset: %u ",
+         physicalDeviceProperties.limits.maxVertexInputAttributeOffset);
+  printf("maxVertexInputBindingStride: %u ",
+         physicalDeviceProperties.limits.maxVertexInputBindingStride);
+  printf("maxVertexOutputComponents: %u ",
+         physicalDeviceProperties.limits.maxVertexOutputComponents);
+  printf("maxTessellationGenerationLevel: %u ",
+         physicalDeviceProperties.limits.maxTessellationGenerationLevel);
+  printf("maxTessellationPatchSize: %u ",
+         physicalDeviceProperties.limits.maxTessellationPatchSize);
+  printf("maxTessellationControlPerVertexInputComponents: %u ",
+         physicalDeviceProperties.limits
+             .maxTessellationControlPerVertexInputComponents);
+  printf("maxTessellationControlPerVertexOutputComponents: %u ",
+         physicalDeviceProperties.limits
+             .maxTessellationControlPerVertexOutputComponents);
+  printf("maxTessellationControlPerPatchOutputComponents: %u ",
+         physicalDeviceProperties.limits
+             .maxTessellationControlPerPatchOutputComponents);
+  printf("maxTessellationControlTotalOutputComponents: %u ",
+         physicalDeviceProperties.limits
+             .maxTessellationControlTotalOutputComponents);
+  printf(
+      "maxTessellationEvaluationInputComponents: %u ",
+      physicalDeviceProperties.limits.maxTessellationEvaluationInputComponents);
+  printf("maxTessellationEvaluationOutputComponents: %u ",
+         physicalDeviceProperties.limits
+             .maxTessellationEvaluationOutputComponents);
+  printf("maxGeometryShaderInvocations: %u ",
+         physicalDeviceProperties.limits.maxGeometryShaderInvocations);
+  printf("maxGeometryInputComponents: %u ",
+         physicalDeviceProperties.limits.maxGeometryInputComponents);
+  printf("maxGeometryOutputComponents: %u ",
+         physicalDeviceProperties.limits.maxGeometryOutputComponents);
+  printf("maxGeometryOutputVertices: %u ",
+         physicalDeviceProperties.limits.maxGeometryOutputVertices);
+  printf("maxGeometryTotalOutputComponents: %u ",
+         physicalDeviceProperties.limits.maxGeometryTotalOutputComponents);
+  printf("maxFragmentInputComponents: %u ",
+         physicalDeviceProperties.limits.maxFragmentInputComponents);
+  printf("maxFragmentOutputAttachments: %u ",
+         physicalDeviceProperties.limits.maxFragmentOutputAttachments);
+  printf("maxFragmentDualSrcAttachments: %u ",
+         physicalDeviceProperties.limits.maxFragmentDualSrcAttachments);
+  printf("maxFragmentCombinedOutputResources: %u ",
+         physicalDeviceProperties.limits.maxFragmentCombinedOutputResources);
+  printf("maxComputeSharedMemorySize: %u ",
+         physicalDeviceProperties.limits.maxComputeSharedMemorySize);
+  printf("maxComputeWorkGroupCount[0]: %u ",
+         physicalDeviceProperties.limits.maxComputeWorkGroupCount[0]);
+  printf("maxComputeWorkGroupCount[1]: %u ",
+         physicalDeviceProperties.limits.maxComputeWorkGroupCount[1]);
+  printf("maxComputeWorkGroupCount[2]: %u ",
+         physicalDeviceProperties.limits.maxComputeWorkGroupCount[2]);
+  printf("maxComputeWorkGroupInvocations: %u ",
+         physicalDeviceProperties.limits.maxComputeWorkGroupInvocations);
+  printf("maxComputeWorkGroupSize[0]: %u ",
+         physicalDeviceProperties.limits.maxComputeWorkGroupSize[0]);
+  printf("maxComputeWorkGroupSize[1]: %u ",
+         physicalDeviceProperties.limits.maxComputeWorkGroupSize[1]);
+  printf("maxComputeWorkGroupSize[2]: %u ",
+         physicalDeviceProperties.limits.maxComputeWorkGroupSize[2]);
+  printf("subPixelPrecisionBits: %u ",
+         physicalDeviceProperties.limits.subPixelPrecisionBits);
+  printf("subTexelPrecisionBits: %u ",
+         physicalDeviceProperties.limits.subTexelPrecisionBits);
+  printf("mipmapPrecisionBits: %u ",
+         physicalDeviceProperties.limits.mipmapPrecisionBits);
+  printf("maxDrawIndexedIndexValue: %u ",
+         physicalDeviceProperties.limits.maxDrawIndexedIndexValue);
+  printf("maxDrawIndirectCount: %u ",
+         physicalDeviceProperties.limits.maxDrawIndirectCount);
+  printf("maxSamplerLodBias: %f ",
+         physicalDeviceProperties.limits.maxSamplerLodBias);
+  printf("maxSamplerAnisotropy: %f ",
+         physicalDeviceProperties.limits.maxSamplerAnisotropy);
+  printf("maxViewports: %u ", physicalDeviceProperties.limits.maxViewports);
+  printf("maxViewportDimensions[0]: %u ",
+         physicalDeviceProperties.limits.maxViewportDimensions[0]);
+  printf("maxViewportDimensions[1]: %u ",
+         physicalDeviceProperties.limits.maxViewportDimensions[1]);
+  printf("viewportBoundsRange[0]: %f ",
+         physicalDeviceProperties.limits.viewportBoundsRange[0]);
+  printf("viewportBoundsRange[1]: %f ",
+         physicalDeviceProperties.limits.viewportBoundsRange[1]);
+  printf("viewportSubPixelBits: %u ",
+         physicalDeviceProperties.limits.viewportSubPixelBits);
+  printf("minMemoryMapAlignment: %zu ",
+         physicalDeviceProperties.limits.minMemoryMapAlignment);
+  printf("minTexelBufferOffsetAlignment: %lu ",
+         physicalDeviceProperties.limits.minTexelBufferOffsetAlignment);
+  printf("minUniformBufferOffsetAlignment: %lu ",
+         physicalDeviceProperties.limits.minUniformBufferOffsetAlignment);
+  printf("minStorageBufferOffsetAlignment: %lu ",
+         physicalDeviceProperties.limits.minStorageBufferOffsetAlignment);
+  printf("minTexelOffset: %d ", physicalDeviceProperties.limits.minTexelOffset);
+  printf("maxTexelOffset: %u ", physicalDeviceProperties.limits.maxTexelOffset);
+  printf("minTexelGatherOffset: %d ",
+         physicalDeviceProperties.limits.minTexelGatherOffset);
+  printf("maxTexelGatherOffset: %u ",
+         physicalDeviceProperties.limits.maxTexelGatherOffset);
+  printf("minInterpolationOffset: %f ",
+         physicalDeviceProperties.limits.minInterpolationOffset);
+  printf("maxInterpolationOffset: %f ",
+         physicalDeviceProperties.limits.maxInterpolationOffset);
+  printf("subPixelInterpolationOffsetBits: %u ",
+         physicalDeviceProperties.limits.subPixelInterpolationOffsetBits);
+  printf("maxFramebufferWidth: %u ",
+         physicalDeviceProperties.limits.maxFramebufferWidth);
+  printf("maxFramebufferHeight: %u ",
+         physicalDeviceProperties.limits.maxFramebufferHeight);
+  printf("maxFramebufferLayers: %u ",
+         physicalDeviceProperties.limits.maxFramebufferLayers);
+  printf("framebufferColorSampleCounts: %u ",
+         physicalDeviceProperties.limits.framebufferColorSampleCounts);
+  printf("framebufferDepthSampleCounts: %u ",
+         physicalDeviceProperties.limits.framebufferDepthSampleCounts);
+  printf("framebufferStencilSampleCounts: %u ",
+         physicalDeviceProperties.limits.framebufferStencilSampleCounts);
+  printf("framebufferNoAttachmentsSampleCounts: %u ",
+         physicalDeviceProperties.limits.framebufferNoAttachmentsSampleCounts);
+  printf("maxColorAttachments: %u ",
+         physicalDeviceProperties.limits.maxColorAttachments);
+  printf("sampledImageColorSampleCounts: %u ",
+         physicalDeviceProperties.limits.sampledImageColorSampleCounts);
+  printf("sampledImageIntegerSampleCounts: %u ",
+         physicalDeviceProperties.limits.sampledImageIntegerSampleCounts);
+  printf("sampledImageDepthSampleCounts: %u ",
+         physicalDeviceProperties.limits.sampledImageDepthSampleCounts);
+  printf("sampledImageStencilSampleCounts: %u ",
+         physicalDeviceProperties.limits.sampledImageStencilSampleCounts);
+  printf("storageImageSampleCounts: %u ",
+         physicalDeviceProperties.limits.storageImageSampleCounts);
+  printf("maxSampleMaskWords: %u ",
+         physicalDeviceProperties.limits.maxSampleMaskWords);
+  printf("timestampComputeAndGraphics: %u ",
+         physicalDeviceProperties.limits.timestampComputeAndGraphics);
+  printf("timestampPeriod: %f ",
+         physicalDeviceProperties.limits.timestampPeriod);
+  printf("maxClipDistances: %u ",
+         physicalDeviceProperties.limits.maxClipDistances);
+  printf("maxCullDistances: %u ",
+         physicalDeviceProperties.limits.maxCullDistances);
+  printf("maxCombinedClipAndCullDistances: %u ",
+         physicalDeviceProperties.limits.maxCombinedClipAndCullDistances);
+  printf("discreteQueuePriorities: %u ",
+         physicalDeviceProperties.limits.discreteQueuePriorities);
+  printf("pointSizeRange[0]: %f ",
+         physicalDeviceProperties.limits.pointSizeRange[0]);
+  printf("pointSizeRange[1]: %f ",
+         physicalDeviceProperties.limits.pointSizeRange[1]);
+  printf("lineWidthRange[0]: %f ",
+         physicalDeviceProperties.limits.lineWidthRange[0]);
+  printf("lineWidthRange[1]: %f ",
+         physicalDeviceProperties.limits.lineWidthRange[1]);
+  printf("pointSizeGranularity: %f ",
+         physicalDeviceProperties.limits.pointSizeGranularity);
+  printf("lineWidthGranularity: %f ",
+         physicalDeviceProperties.limits.lineWidthGranularity);
+  printf("strictLines: %u ", physicalDeviceProperties.limits.strictLines);
+  printf("standardSampleLocations: %u ",
+         physicalDeviceProperties.limits.standardSampleLocations);
+  printf("optimalBufferCopyOffsetAlignment: %lu ",
+         physicalDeviceProperties.limits.optimalBufferCopyOffsetAlignment);
+  printf("optimalBufferCopyRowPitchAlignment: %lu ",
+         physicalDeviceProperties.limits.optimalBufferCopyRowPitchAlignment);
+  printf("nonCoherentAtomSize: %lu",
+         physicalDeviceProperties.limits.nonCoherentAtomSize);
+  printf("\n");
 
 #ifndef NDEBUG
   uint32_t extensionCount = 0;
