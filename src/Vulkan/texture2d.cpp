@@ -10,17 +10,17 @@ void vulkanWrapper::texture2d::Create_Internal(VkFormat format_initial,
   CreateImageMemory(VK_IMAGE_TYPE_2D, format_final,
                     {extent.width, extent.height, 1}, mipLevelCount, 1);
   // 创建图像视图
-  CreateImageView(VK_IMAGE_VIEW_TYPE_2D, format_final, mipLevelCount, 1);
+  CreateImageView(VK_IMAGE_VIEW_TYPE_2D, format_final, mipLevelCount);
   // Blit数据到图像，并生成mipmap
   if (format_initial == format_final)
-    CopyBlitAndGenerateMipmap2d(stagingBuffer::Buffer_CurrentThread(),
-                                memory.Image(), memory.Image(), extent,
-                                mipLevelCount, 1);
+    imageOperation::CopyBlitAndGenerateMipmap2d(
+        stagingBuffer::Buffer_CurrentThread(), memory.Image(), memory.Image(),
+        format_initial, extent, mipLevelCount, 1);
   else if (VkImage image_conversion =
                stagingBuffer::AliasedImage2d_CurrentThread(format_initial,
                                                            extent))
-    BlitAndGenerateMipmap2d(image_conversion, memory.Image(), extent,
-                            mipLevelCount, 1);
+    imageOperation::BlitAndGenerateMipmap2d(image_conversion, memory.Image(),
+                                            extent, mipLevelCount, 1);
   else {
     VkImageCreateInfo imageCreateInfo = {
         .imageType = VK_IMAGE_TYPE_2D,
@@ -33,9 +33,9 @@ void vulkanWrapper::texture2d::Create_Internal(VkFormat format_initial,
             VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT};
     vulkanWrapper::imageMemory imageMemory_conversion(
         imageCreateInfo, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    CopyBlitAndGenerateMipmap2d(stagingBuffer::Buffer_CurrentThread(),
-                                imageMemory_conversion.Image(), memory.Image(),
-                                extent, mipLevelCount, 1);
+    imageOperation::CopyBlitAndGenerateMipmap2d(
+        stagingBuffer::Buffer_CurrentThread(), imageMemory_conversion.Image(),
+        memory.Image(), format_initial, extent, mipLevelCount, 1);
   }
 }
 

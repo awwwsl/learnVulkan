@@ -725,6 +725,10 @@ void window::run() {
                                    "res/vulkanCraft/texture/lapis_block.png",
                                    VK_FORMAT_R8G8B8A8_UNORM,
                                    VK_FORMAT_R8G8B8A8_UNORM, true);
+  vulkanWrapper::dynamicTexture2d dynamicTexture(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "diamond_block.png",
+      VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, true);
 
   VkDescriptorBufferInfo bufferInfo = {
       .buffer = ubo_mvp,
@@ -733,7 +737,7 @@ void window::run() {
   };
   VkDescriptorImageInfo imageInfo = {
       .sampler = sampler,
-      .imageView = texture.ImageView(),
+      .imageView = dynamicTexture.ImageViews()[0],
       .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
   std::vector<VkDescriptorBufferInfo> bufferInfos = {bufferInfo};
   std::vector<VkDescriptorImageInfo> imageInfos = {imageInfo};
@@ -764,11 +768,21 @@ void window::run() {
   mvp.model = glm::mat4(1.0f);
   fence.Reset();
 
+  uint32_t textureSelection = 0;
   while (!glfwWindowShouldClose(glfwWindow)) {
     while (glfwGetWindowAttrib(glfwWindow, GLFW_ICONIFIED)) {
       glfwWaitEvents();
     }
 
+    VkDescriptorImageInfo imageInfo = {
+        .sampler = sampler,
+        .imageView = dynamicTexture.ImageViews()[textureSelection / 15],
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    std::vector<VkDescriptorImageInfo> imageInfos = {imageInfo};
+    descSet.Write(imageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
+
+    textureSelection++;
+    textureSelection %= 120; // 0 - 7
     graphic::Singleton().SwapImage(semaphore_imageAvailable);
     uint32_t i = graphic::Singleton().CurrentImageIndex();
 

@@ -40,12 +40,14 @@ struct imageOperation {
   // Method for handling const uint8_t* address
   [[nodiscard]] static std::unique_ptr<uint8_t[]>
   LoadFile_MemoryAddress(const uint8_t *address, size_t fileSize,
-                         VkExtent2D &extent, formatInfo requiredFormatInfo);
+                         VkExtent2D &extent, formatInfo requiredFormatInfo,
+                         int *layerCount = nullptr);
   // Method for handling const char* address
   [[nodiscard]]
   static std::unique_ptr<uint8_t[]>
   LoadFile_FileSystem(const char *address, VkExtent2D &extent,
-                      formatInfo requiredFormatInfo);
+                      formatInfo requiredFormatInfo,
+                      uint32_t *layerCount = nullptr);
 
   static inline uint32_t CalculateMipLevelCount(VkExtent2D extent) {
     return uint32_t(
@@ -72,4 +74,14 @@ struct imageOperation {
             .borderColor = {},
             .unnormalizedCoordinates = VK_FALSE};
   }
+  static void CopyBlitAndGenerateMipmap2d(
+      VkBuffer buffer_copyFrom, VkImage image_copyTo, VkImage image_blitTo,
+      VkFormat sourceFormat, VkExtent2D imageExtent, uint32_t mipLevelCount = 1,
+      uint32_t layerCount = 1, VkFilter minFilter = VK_FILTER_LINEAR);
+  static void BlitAndGenerateMipmap2d(VkImage image_preinitialized,
+                                      VkImage image_final,
+                                      VkExtent2D imageExtent,
+                                      uint32_t mipLevelCount = 1,
+                                      uint32_t layerCount = 1,
+                                      VkFilter minFilter = VK_FILTER_LINEAR);
 };

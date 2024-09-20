@@ -27,6 +27,8 @@ set(SOURCES
     src/Vulkan/descriptorSetLayout.cpp
     src/Vulkan/deviceLocalBuffer.cpp
     src/Vulkan/deviceMemory.cpp
+    src/Vulkan/dynamicTexture.cpp
+    src/Vulkan/dynamicTexture2d.cpp
     src/Vulkan/fence.cpp
     src/Vulkan/formatInfo.cpp
     src/Vulkan/framebuffer.cpp

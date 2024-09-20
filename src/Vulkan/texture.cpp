@@ -28,11 +28,9 @@ void vulkanWrapper::texture::CreateImageMemory(VkImageType imageType,
 void vulkanWrapper::texture::CreateImageView(VkImageViewType viewType,
                                              VkFormat format,
                                              uint32_t mipLevelCount,
-                                             uint32_t arrayLayerCount,
                                              VkImageViewCreateFlags flags) {
   view.Create(memory.Image(), viewType, format,
-              {VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevelCount, 0, arrayLayerCount},
-              flags);
+              {VK_IMAGE_ASPECT_COLOR_BIT, 0, mipLevelCount, 0, 1}, flags);
 }
 
 // Static Function
@@ -105,99 +103,4 @@ bool vulkanWrapper::texture::CheckArguments(
                                VK_FORMAT_FEATURE_BLIT_SRC_BIT);
   }
   return false;
-}
-
-void vulkanWrapper::texture::CopyBlitAndGenerateMipmap2d(
-    VkBuffer buffer_copyFrom, VkImage image_copyTo, VkImage image_blitTo,
-    VkExtent2D imageExtent, uint32_t mipLevelCount, uint32_t layerCount,
-    VkFilter minFilter) {
-  static constexpr imageOperation::imageMemoryBarrierParameterPack imbs[2] = {
-      {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
-       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-      {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL}};
-  bool generateMipmap = mipLevelCount > 1;
-  bool blitMipLevel0 = image_copyTo != image_blitTo;
-  auto &commandBuffer = graphic::Plus().CommandBuffer_Transfer();
-  commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-  VkBufferImageCopy region = {
-      .imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, layerCount},
-      .imageExtent = {imageExtent.width, imageExtent.height, 1}};
-  imageOperation::CmdCopyBufferToImage(
-      commandBuffer, buffer_copyFrom, image_copyTo, region,
-      {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED},
-      imbs[generateMipmap || blitMipLevel0]);
-  // Blit to another image if necessary
-  if (blitMipLevel0) {
-    VkImageBlit region = {
-        {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, layerCount},
-        {{}, {int32_t(imageExtent.width), int32_t(imageExtent.height), 1}},
-        {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, layerCount},
-        {{}, {int32_t(imageExtent.width), int32_t(imageExtent.height), 1}}};
-    imageOperation::CmdBlitImage(
-        commandBuffer, image_copyTo, image_blitTo, region,
-        {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED},
-        imbs[generateMipmap], minFilter);
-  }
-  // Generate mipmap if necessary, transition layout
-  if (generateMipmap)
-    imageOperation::CmdGenerateMipmap2d(
-        commandBuffer, image_blitTo, imageExtent, mipLevelCount, layerCount,
-        {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
-         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-        minFilter);
-  commandBuffer.End();
-  // Submit
-  graphic::Plus().ExecuteCommandBuffer_Graphics(commandBuffer);
-}
-void vulkanWrapper::texture::BlitAndGenerateMipmap2d(
-    VkImage image_preinitialized, VkImage image_final, VkExtent2D imageExtent,
-    uint32_t mipLevelCount, uint32_t layerCount, VkFilter minFilter) {
-  static constexpr imageOperation::imageMemoryBarrierParameterPack imbs[2] = {
-      {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
-       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-      {VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT,
-       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL}};
-  bool generateMipmap = mipLevelCount > 1;
-  bool blitMipLevel0 = image_preinitialized != image_final;
-  if (generateMipmap || blitMipLevel0) {
-    auto &commandBuffer = graphic::Plus().CommandBuffer_Transfer();
-    commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    // Blit to another image if necessary
-    if (blitMipLevel0) {
-      VkImageMemoryBarrier imageMemoryBarrier = {
-          VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-          nullptr,
-          0,
-          VK_ACCESS_TRANSFER_READ_BIT,
-          VK_IMAGE_LAYOUT_PREINITIALIZED,
-          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-          VK_QUEUE_FAMILY_IGNORED,
-          VK_QUEUE_FAMILY_IGNORED,
-          image_preinitialized,
-          {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layerCount}};
-      vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                           VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0,
-                           nullptr, 1, &imageMemoryBarrier);
-      VkImageBlit region = {
-          {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, layerCount},
-          {{}, {int32_t(imageExtent.width), int32_t(imageExtent.height), 1}},
-          {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, layerCount},
-          {{}, {int32_t(imageExtent.width), int32_t(imageExtent.height), 1}}};
-      imageOperation::CmdBlitImage(
-          commandBuffer, image_preinitialized, image_final, region,
-          {VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED},
-          imbs[generateMipmap], minFilter);
-    }
-    // Generate mipmap if necessary, transition layout
-    if (generateMipmap)
-      imageOperation::CmdGenerateMipmap2d(
-          commandBuffer, image_final, imageExtent, mipLevelCount, layerCount,
-          {VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
-           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-          minFilter);
-    commandBuffer.End();
-    // Submit
-    graphic::Plus().ExecuteCommandBuffer_Graphics(commandBuffer);
-  }
 }

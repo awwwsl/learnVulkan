@@ -1,6 +1,6 @@
 # Todo
 
-1. add dynamic texture support
+1. ~add dynamic texture support~ done
 2. add runtime block add & remove
 3. add skybox
 4. add lighting

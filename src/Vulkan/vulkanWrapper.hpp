@@ -13,6 +13,8 @@
 #include "descriptorSetLayout.hpp"
 #include "deviceLocalBuffer.hpp"
 #include "deviceMemory.hpp"
+#include "dynamicTexture.hpp"
+#include "dynamicTexture2d.hpp"
 #include "fence.hpp"
 #include "formatInfo.hpp"
 #include "framebuffer.hpp"

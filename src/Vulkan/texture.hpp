@@ -25,7 +25,7 @@ protected:
                          uint32_t arrayLayerCount,
                          VkImageCreateFlags flags = 0);
   void CreateImageView(VkImageViewType viewType, VkFormat format,
-                       uint32_t mipLevelCount, uint32_t arrayLayerCount,
+                       uint32_t mipLevelCount,
                        VkImageViewCreateFlags flags = 0);
   ~texture();
 
@@ -44,16 +44,6 @@ public:
     return {sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
   }
 
-  static void CopyBlitAndGenerateMipmap2d(
-      VkBuffer buffer_copyFrom, VkImage image_copyTo, VkImage image_blitTo,
-      VkExtent2D imageExtent, uint32_t mipLevelCount = 1,
-      uint32_t layerCount = 1, VkFilter minFilter = VK_FILTER_LINEAR);
-  static void BlitAndGenerateMipmap2d(VkImage image_preinitialized,
-                                      VkImage image_final,
-                                      VkExtent2D imageExtent,
-                                      uint32_t mipLevelCount = 1,
-                                      uint32_t layerCount = 1,
-                                      VkFilter minFilter = VK_FILTER_LINEAR);
   // Static Function
   /*CheckArguments(...) should only be called in tests*/
   static bool CheckArguments(VkImageType imageType, VkExtent3D extent,
