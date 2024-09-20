@@ -14,7 +14,7 @@
 #else
 #define DestroyHandleBy(Func, name)                                            \
   if (handle) {                                                                \
-    Func(graphicsBase::Singleton().Device(), handle, nullptr);                 \
+    Func(graphic::Singleton().Device(), handle, nullptr);                      \
     handle = VK_NULL_HANDLE;                                                   \
   }
 #endif
