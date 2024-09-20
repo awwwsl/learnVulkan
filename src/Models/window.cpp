@@ -281,12 +281,13 @@ void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
     commandBuffer.End();
 
     VkPipelineStageFlags waitDstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    VkSubmitInfo submitInfo = {.waitSemaphoreCount = 1,
-                               .pWaitSemaphores =
-                                   semaphore_imageIsAvailable.Address(),
-                               .pWaitDstStageMask = &waitDstStage,
-                               .commandBufferCount = 1,
-                               .pCommandBuffers = commandBuffer.Address()};
+    VkSubmitInfo submitInfo = {
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = semaphore_imageIsAvailable.Address(),
+        .pWaitDstStageMask = &waitDstStage,
+        .commandBufferCount = 1,
+        .pCommandBuffers = commandBuffer.Address(),
+    };
     graphic::Singleton().SubmitCommandBuffer_Graphics(submitInfo, fence);
     fence.WaitAndReset();
     graphic::Singleton().PresentImage();
@@ -324,18 +325,6 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
         0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, position));
     pipelineCiPack.vertexInputAttributes.emplace_back(
         1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(vertex, texCoord));
-
-    pipelineCiPack.vertexInputBindings.emplace_back(
-        1, sizeof(glm::mat4), VK_VERTEX_INPUT_RATE_INSTANCE);
-
-    pipelineCiPack.vertexInputAttributes.emplace_back(
-        2, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 0);
-    pipelineCiPack.vertexInputAttributes.emplace_back(
-        3, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 1);
-    pipelineCiPack.vertexInputAttributes.emplace_back(
-        4, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 2);
-    pipelineCiPack.vertexInputAttributes.emplace_back(
-        5, 1, VK_FORMAT_R32G32B32A32_SFLOAT, sizeof(glm::vec4) * 3);
 
     pipelineCiPack.createInfo.layout = layout;
     pipelineCiPack.createInfo.renderPass =
@@ -625,22 +614,34 @@ void window::run() {
       {{-0.5f, -0.5f, 0.5f}, {0.0f, 1.0f}},
   };
 
-  glm::mat4 models[20][10][10];
-  for (int i = 0; i < 10; i++) {
-    for (int j = 0; j < 10; j++) {
-      for (int k = 0; k < 10; k++) {
-        models[i][j][k] = glm::translate(glm::mat4(1.f),
-                                         glm::vec3(i * 2.f, j * 2.f, k * 2.f));
-      }
-    }
-  }
-  for (int i = 10; i < 20; i++) {
-    for (int j = 0; j < 10; j++) {
-      for (int k = 0; k < 10; k++) {
-        models[i][j][k] =
-            glm::translate(glm::mat4(1.f), glm::vec3(i + 15.f, j, k));
-      }
-    }
+  // glm::mat4 models[20][10][10];
+  // for (int i = 0; i < 10; i++) {
+  //   for (int j = 0; j < 10; j++) {
+  //     for (int k = 0; k < 10; k++) {
+  //       models[i][j][k] = glm::translate(glm::mat4(1.f),
+  //                                        glm::vec3(i * 2.f, j * 2.f, k
+  //                                        * 2.f));
+  //     }
+  //   }
+  // }
+  // for (int i = 10; i < 20; i++) {
+  //   for (int j = 0; j < 10; j++) {
+  //     for (int k = 0; k < 10; k++) {
+  //       models[i][j][k] =
+  //           glm::translate(glm::mat4(1.f), glm::vec3(i + 15.f, j, k));
+  //     }
+  //   }
+  // }
+  // glm::mat4 models[50][50];
+  // for (int i = 0; i < 50; i++) {
+  //   for (int j = 0; j < 50; j++) {
+  //     models[i][j] = glm::translate(glm::mat4(1.f), glm::vec3(0.f, i, j));
+  //   }
+  // }
+  int x = 1024, y = 1024;
+  std::vector<glm::mat4> models(x * y);
+  for (int i = 0; i < x * y; i++) {
+    models[i] = glm::translate(glm::mat4(1.f), glm::vec3(0.f, i / x, i % y));
   }
 
   uint16_t indices[] = {
@@ -656,8 +657,11 @@ void window::run() {
   vulkanWrapper::vertexBuffer verticesBuffer(sizeof vertices);
   verticesBuffer.TransferData(vertices, sizeof vertices);
 
-  vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) * 2000);
-  instanceBuffer.TransferData(models, sizeof models);
+  vulkanWrapper::storageBuffer instanceBuffer(sizeof(glm::mat4) *
+                                              models.size());
+  // vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) *
+  // models.size());
+  instanceBuffer.TransferData(models.data(), sizeof(glm::mat4) * models.size());
 
   vulkanWrapper::indexBuffer indexBuffer(sizeof indices);
   indexBuffer.TransferData(indices, sizeof indices);
@@ -684,13 +688,21 @@ void window::run() {
       .stageFlags =
           VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
   };
+  VkDescriptorSetLayoutBinding instanceBufferDescSetLayoutBinding = {
+      .binding = 2,
+      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount = 1,
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+  };
   VkDescriptorSetLayoutBinding textureDescriptorSetLayoutBinding = {
       .binding = 1,
       .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
       .descriptorCount = 1,
-      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT};
+      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+  };
 
   bindings.push_back(uboDescriptorSetLayoutBinding);
+  bindings.push_back(instanceBufferDescSetLayoutBinding);
   bindings.push_back(textureDescriptorSetLayoutBinding);
 
   const uint32_t bindingCount = bindings.size();
@@ -730,19 +742,28 @@ void window::run() {
       "diamond_block.png",
       VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, true);
 
-  VkDescriptorBufferInfo bufferInfo = {
+  VkDescriptorBufferInfo storageBufferInfo_instance = {
+      .buffer = instanceBuffer,
+      .offset = 0,
+      .range = VK_WHOLE_SIZE,
+  };
+  VkDescriptorBufferInfo uniformBufferInfo_MVP = {
       .buffer = ubo_mvp,
       .offset = 0,
-      .range = sizeof(MVP) // 或VK_WHOLE_SIZE
+      .range = sizeof(MVP),
   };
   VkDescriptorImageInfo imageInfo = {
       .sampler = sampler,
       .imageView = dynamicTexture.ImageViews()[0],
-      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-  std::vector<VkDescriptorBufferInfo> bufferInfos = {bufferInfo};
+      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+  };
+  std::vector<VkDescriptorBufferInfo> uboBufferInfos = {uniformBufferInfo_MVP};
   std::vector<VkDescriptorImageInfo> imageInfos = {imageInfo};
-  descSet.Write(bufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
+  std::vector<VkDescriptorBufferInfo> storageBufferInfos = {
+      storageBufferInfo_instance};
+  descSet.Write(uboBufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
   descSet.Write(imageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
+  descSet.Write(storageBufferInfos, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2);
 
   vulkanWrapper::fence fence(VK_FENCE_CREATE_SIGNALED_BIT);
   vulkanWrapper::semaphore semaphore_imageAvailable;
@@ -803,14 +824,11 @@ void window::run() {
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, verticesBuffer.Address(),
                            &offset);
-    vkCmdBindVertexBuffers(commandBuffer, 1, 1, instanceBuffer.Address(),
-                           &offset);
-
     vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
     vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             mainPipelineLayout, 0, 1, descSet.Address(), 0,
                             nullptr);
-    vkCmdDrawIndexed(commandBuffer, 36, 2000, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffer, 36, models.size(), 0, 0, 0);
 
     renderPass.CmdEnd(commandBuffer);
     commandBuffer.End();
