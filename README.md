@@ -7,7 +7,7 @@ My implementation ~copy & paste~ of [EasyVulkan](https://easyvulkan.github.io/) 
 1. Compile program
 
 ```bash
-conan install --build=missing --output=build
+conan install . --build=missing --output=build
 cmake --preset conan-release
 cmake --build build
 ```
