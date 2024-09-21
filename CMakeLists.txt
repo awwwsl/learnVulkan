@@ -11,7 +11,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 set(SOURCES
     src/main.cpp
 
-    src/Utils/VkResultThrowable.cpp
     src/Utils/imageOperation.cpp
 
     src/Vulkan/attachment.cpp

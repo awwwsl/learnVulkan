@@ -47,18 +47,6 @@ VkResultThrowable vulkanWrapper::commandPool::AllocateBuffers(
 #endif
   return result;
 }
-//  HACK: Copy
-VkResultThrowable vulkanWrapper::commandPool::AllocateBuffers(
-    std::vector<vulkanWrapper::commandBuffer> &buffers,
-    VkCommandBufferLevel level) const {
-  std::vector<VkCommandBuffer> bufferHandles(buffers.size());
-  for (size_t i = 0; i < buffers.size(); i++) {
-    bufferHandles[i] = buffers[i].handle;
-  }
-
-  return AllocateBuffers(bufferHandles, level);
-}
-
 VkResultThrowable vulkanWrapper::commandPool::AllocateBuffers(
     vulkanWrapper::commandBuffer &buffer, VkCommandBufferLevel level) const {
   std::vector<VkCommandBuffer> buffers(1);

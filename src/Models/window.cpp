@@ -1,3 +1,4 @@
+#include <glm/ext/matrix_transform.hpp>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
@@ -37,6 +38,11 @@ struct alignas(16) MVP {
   glm::mat4 model;
   glm::mat4 view;
   glm::mat4 projection;
+};
+
+struct pushConstant {
+  glm::mat4 aimingBlockModel;
+  glm::vec4 colorRGBA;
 };
 
 window::window() {}
@@ -306,8 +312,8 @@ const rpwfUtils::renderPassWithFramebuffers &RenderPassAndFramebuffers() {
   return rpwf;
 }
 
-const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
-                          vulkanWrapper::pipelineLayout &layout) {
+const void CreatePipelineCube(vulkanWrapper::pipeline &pipeline,
+                              vulkanWrapper::pipelineLayout &layout) {
   static vulkanWrapper::shader vert("src/Shaders/3d.vert.spv");
   static vulkanWrapper::shader frag("src/Shaders/3d.frag.spv");
   static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_3d[2] = {
@@ -356,6 +362,76 @@ const void CreatePipeline(vulkanWrapper::pipeline &pipeline,
 
     pipeline.Create(pipelineCiPack);
   };
+  auto Destroy = [&] { pipeline.~pipeline(); };
+  graphic::Singleton().AddCreateSwapchainCallback(Create);
+  graphic::Singleton().AddDestroySwapchainCallback(Destroy);
+  Create();
+}
+
+const void CreatePipelineOutline(vulkanWrapper::pipeline &pipeline,
+                                 vulkanWrapper::pipelineLayout &layout) {
+  static vulkanWrapper::shader vert("src/Shaders/outline.vert.spv");
+  static vulkanWrapper::shader frag("src/Shaders/outline.frag.spv");
+  static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_3d[2] = {
+      vert.StageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
+      frag.StageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT)};
+  auto Create = [&] {
+    const VkExtent2D &windowSize =
+        graphic::Singleton().SwapchainCreateInfo().imageExtent;
+    graphicsPipelineCreateInfoPack pipelineCiPack;
+
+    pipelineCiPack.vertexInputBindings.emplace_back(
+        0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX);
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, position));
+
+    pipelineCiPack.createInfo.layout = layout;
+    pipelineCiPack.createInfo.renderPass =
+        RenderPassAndFramebuffers().renderPass;
+
+    pipelineCiPack.inputAssemblyStateCi.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    pipelineCiPack.inputAssemblyStateCi.topology =
+        VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+    pipelineCiPack.inputAssemblyStateCi.primitiveRestartEnable = VK_FALSE;
+
+    pipelineCiPack.viewports.emplace_back(0.f, 0.f, float(windowSize.width),
+                                          float(windowSize.height), 0.f, 1.f);
+    pipelineCiPack.scissors.emplace_back(VkOffset2D{}, windowSize);
+
+    pipelineCiPack.rasterizationStateCi.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    pipelineCiPack.rasterizationStateCi.polygonMode = VK_POLYGON_MODE_LINE;
+    pipelineCiPack.rasterizationStateCi.lineWidth = 6.f;
+
+    // 开启背面剔除
+    pipelineCiPack.rasterizationStateCi.cullMode = VK_CULL_MODE_BACK_BIT;
+    pipelineCiPack.rasterizationStateCi.frontFace =
+        VK_FRONT_FACE_CLOCKWISE; // 默认值，为0
+
+    pipelineCiPack.multisampleStateCi.rasterizationSamples =
+        VK_SAMPLE_COUNT_1_BIT;
+
+    // 开启深度测试
+    pipelineCiPack.depthStencilStateCi.depthTestEnable = VK_TRUE;
+    pipelineCiPack.depthStencilStateCi.depthWriteEnable = VK_TRUE;
+    pipelineCiPack.depthStencilStateCi.depthCompareOp =
+        VK_COMPARE_OP_LESS; // 若新片元的深度更小，则通过测试
+
+    // 开启深度偏移  TODO: 调整到合适的值
+    pipelineCiPack.rasterizationStateCi.depthBiasEnable = VK_TRUE;
+    pipelineCiPack.rasterizationStateCi.depthBiasConstantFactor = -0.5f;
+    pipelineCiPack.rasterizationStateCi.depthBiasSlopeFactor = 0.f;
+
+    pipelineCiPack.colorBlendAttachmentStates.push_back(
+        {.colorWriteMask = 0b1111});
+    pipelineCiPack.UpdateAllArrays();
+    pipelineCiPack.createInfo.stageCount = 2;
+    pipelineCiPack.createInfo.pStages = shaderStageCreateInfos_3d;
+
+    pipeline.Create(pipelineCiPack);
+  };
+
   auto Destroy = [&] { pipeline.~pipeline(); };
   graphic::Singleton().AddCreateSwapchainCallback(Create);
   graphic::Singleton().AddDestroySwapchainCallback(Destroy);
@@ -640,7 +716,7 @@ void window::run() {
   int x = 1024, y = 1024;
   std::vector<glm::mat4> models(x * y);
   for (int i = 0; i < x * y; i++) {
-    models[i] = glm::translate(glm::mat4(1.f), glm::vec3(0.f, i / x, i % y));
+    models[i] = glm::translate(glm::mat4(1.f), glm::vec3(2.f, i / x, i % y));
   }
 
   uint16_t indices[] = {
@@ -653,8 +729,21 @@ void window::run() {
       20, 21, 22, 22, 23, 20, // Bottom face
   };
 
-  vulkanWrapper::vertexBuffer verticesBuffer(sizeof vertices);
-  verticesBuffer.TransferData(vertices, sizeof vertices);
+  uint16_t edges[] = {// Front face
+                      0, 1, 1, 2, 2, 3, 3, 0,
+                      // Back face
+                      4, 5, 5, 6, 6, 7, 7, 4,
+                      // Left face
+                      8, 9, 9, 10, 10, 11, 11, 8,
+                      // Right face
+                      12, 13, 13, 14, 14, 15, 15, 12,
+                      // Top face
+                      16, 17, 17, 18, 18, 19, 19, 16,
+                      // Bottom face
+                      20, 21, 21, 22, 22, 23, 23, 20};
+
+  vulkanWrapper::vertexBuffer cubeVerticesBuffer(sizeof vertices);
+  cubeVerticesBuffer.TransferData(vertices, sizeof vertices);
 
   vulkanWrapper::storageBuffer instanceBuffer(sizeof(glm::mat4) *
                                               models.size());
@@ -662,13 +751,18 @@ void window::run() {
   // models.size());
   instanceBuffer.TransferData(models.data(), sizeof(glm::mat4) * models.size());
 
-  vulkanWrapper::indexBuffer indexBuffer(sizeof indices);
-  indexBuffer.TransferData(indices, sizeof indices);
+  vulkanWrapper::indexBuffer cubeVertexIndexBuffer(sizeof indices);
+  cubeVertexIndexBuffer.TransferData(indices, sizeof indices);
+
+  vulkanWrapper::indexBuffer cubeEdgeIndexBuffer(sizeof edges);
+  cubeEdgeIndexBuffer.TransferData(edges, sizeof edges);
 
   vulkanWrapper::uniformBuffer ubo_mvp(sizeof(glm::mat4) * 3);
 
-  vulkanWrapper::pipelineLayout mainPipelineLayout;
-  vulkanWrapper::pipeline mainPipeline;
+  vulkanWrapper::pipelineLayout cubePipelineLayout;
+  vulkanWrapper::pipelineLayout outlinePipelineLayout;
+  vulkanWrapper::pipeline cubePipeline;
+  vulkanWrapper::pipeline outlinePipeline;
 
   vulkanWrapper::descriptorSetLayout descSetLayout;
 
@@ -709,11 +803,29 @@ void window::run() {
       .bindingCount = bindingCount, .pBindings = bindings.data()};
   descSetLayout.Create(descriptorSetLayoutCreateInfo);
 
-  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
-      .setLayoutCount = 1, .pSetLayouts = descSetLayout.Address()};
-  mainPipelineLayout.Create(pipelineLayoutCreateInfo);
+  VkPushConstantRange pushConstantRange = {
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+      .offset = 0,
+      .size = sizeof(pushConstant),
+  };
 
-  CreatePipeline(mainPipeline, mainPipelineLayout);
+  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_cube = {
+      .setLayoutCount = 1,
+      .pSetLayouts = descSetLayout.Address(),
+      .pushConstantRangeCount = 0,
+  };
+
+  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_outline = {
+      .setLayoutCount = 1,
+      .pSetLayouts = descSetLayout.Address(),
+      .pushConstantRangeCount = 1,
+      .pPushConstantRanges = &pushConstantRange,
+  };
+  cubePipelineLayout.Create(pipelineLayoutCreateInfo_cube);
+  outlinePipelineLayout.Create(pipelineLayoutCreateInfo_outline);
+
+  CreatePipelineCube(cubePipeline, cubePipelineLayout);
+  CreatePipelineOutline(outlinePipeline, outlinePipelineLayout);
 
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
@@ -771,13 +883,25 @@ void window::run() {
   vulkanWrapper::semaphore semaphore_imageAvailable;
   vulkanWrapper::semaphore semaphore_renderFinished;
 
-  vulkanWrapper::commandBuffer commandBuffer;
+  vulkanWrapper::commandBuffer primaryCommandBuffer;
+
+  vulkanWrapper::commandBuffer cubeCommandBuffer;
+  vulkanWrapper::commandBuffer outlineCommandBuffer;
+  std::vector<VkCommandBuffer> commandBufferTransports = {
+      cubeCommandBuffer,
+      outlineCommandBuffer,
+  };
+
   vulkanWrapper::commandPool commandPool(
       graphic::Singleton().QueueFamilyIndex_Graphics(),
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-  commandPool.AllocateBuffers(commandBuffer);
+  commandPool.AllocateBuffers(primaryCommandBuffer);
+  commandPool.AllocateBuffers(commandBufferTransports,
+                              VK_COMMAND_BUFFER_LEVEL_SECONDARY);
+  cubeCommandBuffer = commandBufferTransports[0];
+  outlineCommandBuffer = commandBufferTransports[1];
 
-  auto color = color::floatRGBA(0, 0, 0, 255);
+  auto color = color::floatRGBA(101, 101, 101, 255);
   VkClearValue clearColor = {.color = {std::get<0>(color), std::get<1>(color),
                                        std::get<2>(color),
                                        std::get<3>(color)}}; // 灰色
@@ -809,39 +933,88 @@ void window::run() {
     graphic::Singleton().SwapImage(semaphore_imageAvailable);
     uint32_t i = graphic::Singleton().CurrentImageIndex();
 
-    commandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    renderPass.CmdBegin(commandBuffer, framebuffers[i],
-                        {{}, {framebuffers[i].Size()}}, clearValues,
-                        VK_SUBPASS_CONTENTS_INLINE);
-
+    // calculate data
     mvp.view = camera::Singleton().getViewMatrix();
     mvp.projection = camera::Singleton().getProjectionMatrix(
         currentSize.width, currentSize.height);
+    struct pushConstant push = {
+        .aimingBlockModel = glm::translate(glm::mat4(1.f), {2.f, 1.f, 1.f}),
+        .colorRGBA = {0.f, 0.f, 0.f, 1.f},
+    };
+
     // TransferData
-    verticesBuffer.TransferData(vertices, sizeof vertices);
+    cubeVerticesBuffer.TransferData(vertices, sizeof vertices);
     ubo_mvp.TransferData(&mvp, sizeof(MVP));
 
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      mainPipeline);
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, verticesBuffer.Address(),
-                           &offset);
-    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            mainPipelineLayout, 0, 1, descSet.Address(), 0,
-                            nullptr);
-    vkCmdDrawIndexed(commandBuffer, 36, models.size(), 0, 0, 0);
+    VkCommandBufferInheritanceInfo inheritanceInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
+        .renderPass = renderPass,
+        .framebuffer = framebuffers[i],
+    };
 
-    renderPass.CmdEnd(commandBuffer);
-    commandBuffer.End();
+    VkDeviceSize offset = 0;
+    { // outline
+      outlineCommandBuffer.Begin(
+          VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT, inheritanceInfo);
+
+      // outlines
+      vkCmdBindPipeline(outlineCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        outlinePipeline);
+      vkCmdBindDescriptorSets(
+          outlineCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+          outlinePipelineLayout, 0, 1, descSet.Address(), 0, nullptr);
+      vkCmdBindVertexBuffers(outlineCommandBuffer, 0, 1,
+                             cubeVerticesBuffer.Address(), &offset);
+      vkCmdBindIndexBuffer(outlineCommandBuffer, cubeEdgeIndexBuffer, 0,
+                           VK_INDEX_TYPE_UINT16);
+      vkCmdPushConstants(outlineCommandBuffer, outlinePipelineLayout,
+                         VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant),
+                         &push);
+      vkCmdDrawIndexed(outlineCommandBuffer, 48, 1, 0, 0, 0);
+
+      outlineCommandBuffer.End();
+    }
+
+    { // cube
+      cubeCommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+                              inheritanceInfo);
+      vkCmdBindPipeline(cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        cubePipeline);
+
+      vkCmdBindVertexBuffers(cubeCommandBuffer, 0, 1,
+                             cubeVerticesBuffer.Address(), &offset);
+      vkCmdBindIndexBuffer(cubeCommandBuffer, cubeVertexIndexBuffer, 0,
+                           VK_INDEX_TYPE_UINT16);
+      vkCmdBindDescriptorSets(
+          cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+          cubePipelineLayout, 0, 1, descSet.Address(), 0, nullptr);
+      vkCmdDrawIndexed(cubeCommandBuffer, 36, models.size(), 0, 0, 0);
+      cubeCommandBuffer.End();
+    }
+
+    { // primary
+      primaryCommandBuffer.Begin();
+      renderPass.CmdBegin(primaryCommandBuffer, framebuffers[i],
+                          {{}, {framebuffers[i].Size()}}, clearValues,
+                          VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+
+      std::vector<VkCommandBuffer> subCommandBuffers = {
+          cubeCommandBuffer,
+          outlineCommandBuffer,
+      };
+      vkCmdExecuteCommands(primaryCommandBuffer, 2, subCommandBuffers.data());
+
+      renderPass.CmdEnd(primaryCommandBuffer);
+      primaryCommandBuffer.End();
+    }
 
     graphic::Singleton().SubmitCommandBuffer_Graphics(
-        commandBuffer, semaphore_imageAvailable, semaphore_renderFinished,
-        fence,
+        primaryCommandBuffer, semaphore_imageAvailable,
+        semaphore_renderFinished, fence,
         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-    graphic::Singleton().PresentImage(semaphore_renderFinished);
 
+    graphic::Singleton().PresentImage(semaphore_renderFinished);
     glfwPollEvents();
     updateLogic();
 
@@ -849,7 +1022,7 @@ void window::run() {
   }
   printf("Exit\n");
   TerminateWindow();
-};
+}; // namespace learnVulkan
 
 void window::updateLogic() {
   for (int i = 0; i < logicUpdateCallbacks.size(); i++) {

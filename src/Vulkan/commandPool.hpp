@@ -32,9 +32,6 @@ public:
 
   //  HACK: Copy
   VkResultThrowable AllocateBuffers(
-      std::vector<vulkanWrapper::commandBuffer> &buffers,
-      VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const;
-  VkResultThrowable AllocateBuffers(
       std::vector<VkCommandBuffer> &buffers,
       VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY) const;
   VkResultThrowable AllocateBuffers(

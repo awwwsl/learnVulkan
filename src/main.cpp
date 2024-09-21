@@ -3,6 +3,8 @@
 
 #include "Models/window.hpp"
 
+#include <stdexcept>
+
 void destroy() {
   // vkDestroySurfaceKHR(instance, surface, nullptr);
   glfwTerminate();
@@ -15,14 +17,17 @@ int main(int argc, char *argv[]) {
   printf("Release mode\n");
 #endif
 
-  learnVulkan::window window;
+  try {
+    learnVulkan::window window;
 
-  window.windowTitle = "Learn Vulkan";
-  if (!window.initialize()) {
-    return 1;
+    window.windowTitle = "Learn Vulkan";
+    if (!window.initialize()) {
+      return 1;
+    }
+    window.run();
+  } catch (const std::runtime_error &ex) {
+    printf("%s", ex.what());
   }
-
-  window.run();
 
   glfwTerminate();
 

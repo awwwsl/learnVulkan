@@ -13,10 +13,17 @@ class commandBuffer {
 public:
   commandBuffer();
   commandBuffer(commandBuffer &&other) noexcept;
+  commandBuffer(const commandBuffer &other) noexcept {
+    this->handle = other.handle;
+  }
   // 命令缓冲区的析构函数定义在封装命令池的commandPool类中
   // Getter
   DefineHandleTypeOperator;
   DefineAddressFunction;
+  commandBuffer operator=(const VkCommandBuffer &other) {
+    handle = other;
+    return *this;
+  }
   // Const Function
   // 这里没给inheritanceInfo设定默认参数，因为C++标准中规定对空指针解引用是未定义行为（尽管运行期不必发生，且至少MSVC编译器允许这种代码），而我又一定要传引用而非指针，因而形成了两个Begin(...)
   VkResultThrowable

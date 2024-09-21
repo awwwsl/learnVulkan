@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdexcept>
 #include <vulkan/vulkan.h>
 
 // #define VK_RESULT_THROW
@@ -23,7 +24,8 @@ public:
       return;
     if (callback_throw)
       callback_throw(result);
-    throw result;
+    std::string message = "Runtime error: " + std::to_string(result);
+    throw std::runtime_error(message);
   }
 
   operator VkResult() {
