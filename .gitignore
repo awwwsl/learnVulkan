@@ -45,5 +45,6 @@
 **/*.bak
 **/*.swp
 
-build/
 CMakeFiles/
+build/
+local/

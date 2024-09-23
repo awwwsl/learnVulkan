@@ -2,6 +2,8 @@
 
 #define GLFW_INCLUDE_VULKAN
 
+#include "world.hpp"
+
 #include <GLFW/glfw3.h>
 
 #include <chrono>
@@ -20,10 +22,15 @@ class window {
   static inline std::vector<LogicUpdateCallbackInfo> logicUpdateCallbacks;
 
 private:
+  world worldInstance;
+
   GLFWwindow *glfwWindow;
   GLFWmonitor *glfwMonitor;
 
   bool iconified = false;
+
+  block *rayIntersection(const glm::vec3 start, const glm::vec3 direction,
+                         const float maxDistance = 5.0f);
 
   inline void updatePerPeriod(
       std::chrono::duration<double> interval,

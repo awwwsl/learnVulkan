@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -32,7 +33,7 @@ public:
   static const constexpr float defaultFov = 90.0f;
 
   static const constexpr float defaultNearPlane = 0.02f;
-  static const constexpr float defaultFarPlane = 100.0f;
+  static const constexpr float defaultFarPlane = 10000.0f;
 
   inline camera()
       : camera(defaultPosition, defaultFront, defaultUp, defaultRight,

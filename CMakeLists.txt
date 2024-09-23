@@ -50,6 +50,7 @@ set(SOURCES
     src/Models/graphicPlusImpl.cpp
     src/Models/rpwfUtils.cpp
     src/Models/window.cpp
+    src/Models/world.cpp
 )
 
 include_directories(src)

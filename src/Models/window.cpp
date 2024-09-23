@@ -1,5 +1,3 @@
-#include <glm/ext/matrix_transform.hpp>
-#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #ifndef LIMIT_FRAME_RATE
@@ -11,12 +9,13 @@
 
 #include "../Vulkan/vulkanWrapper.hpp"
 
+#include "block.hpp"
 #include "camera.hpp"
-#include "entity.hpp"
 #include "graphic.hpp"
 #include "graphicPlus.hpp"
 #include "rpwfUtils.hpp"
 #include "window.hpp"
+#include "world.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -150,6 +149,19 @@ bool window::initialize() {
     return false;
 
   return true;
+}
+
+block *window::rayIntersection(const glm::vec3 start, const glm::vec3 direction,
+                               const float maxDistance) {
+  glm::vec3 now = start;
+  while (glm::distance(now, start) < maxDistance) {
+    now += direction * 0.01f;
+    glm::ivec3 current(glm::round(now));
+    if (auto *entity = worldInstance.getEntity(current)) {
+      return entity;
+    }
+  }
+  return nullptr;
 }
 
 void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
@@ -532,17 +544,36 @@ void window::run() {
             camera::Singleton().verticalUpward(
                 -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
           }
-          static bool keyCPressed = false;
-          static float fov = camera::Singleton().fov;
-          if (glfwGetKey(glfwWindow, GLFW_KEY_C) == GLFW_PRESS &&
-              keyCPressed == false) {
-            keyCPressed = true;
-            fov = camera::Singleton().fov;
-            camera::Singleton().fov = 30.f;
-          } else if (glfwGetKey(glfwWindow, GLFW_KEY_C) == GLFW_RELEASE &&
-                     keyCPressed == true) {
-            keyCPressed = false;
-            camera::Singleton().fov = fov;
+          { // fov switch
+            static bool pressed = false;
+            static float fov = camera::Singleton().fov;
+            if (glfwGetKey(glfwWindow, GLFW_KEY_C) == GLFW_PRESS &&
+                pressed == false) {
+              pressed = true;
+              fov = camera::Singleton().fov;
+              camera::Singleton().fov = 30.f;
+            } else if (glfwGetKey(glfwWindow, GLFW_KEY_C) == GLFW_RELEASE &&
+                       pressed == true) {
+              pressed = false;
+              camera::Singleton().fov = fov;
+            }
+          }
+          {
+            static bool pressed = false;
+            if (glfwGetKey(glfwWindow, GLFW_KEY_P) == GLFW_PRESS &&
+                pressed == false) {
+              pressed = true;
+              printf("[ window ] INFO: camera(%f, %f, %f) front:(%f, %f, %f)\n",
+                     camera::Singleton().position.x,
+                     camera::Singleton().position.y,
+                     camera::Singleton().position.z,
+                     camera::Singleton().front.x, camera::Singleton().front.y,
+                     camera::Singleton().front.z);
+
+            } else if (glfwGetKey(glfwWindow, GLFW_KEY_P) == GLFW_RELEASE &&
+                       pressed == true) {
+              pressed = false;
+            }
           }
         });
 
@@ -713,10 +744,14 @@ void window::run() {
   //     models[i][j] = glm::translate(glm::mat4(1.f), glm::vec3(0.f, i, j));
   //   }
   // }
-  int x = 1024, y = 1024;
-  std::vector<glm::mat4> models(x * y);
-  for (int i = 0; i < x * y; i++) {
-    models[i] = glm::translate(glm::mat4(1.f), glm::vec3(2.f, i / x, i % y));
+
+  worldInstance.initializeWorld();
+  uint64_t size = worldInstance.entities.size();
+  std::vector<glm::mat4> models(size);
+  uint64_t index = 0;
+  for (auto &entity : worldInstance.entities) {
+    models[index] = entity.second.getModelMatrix();
+    index++;
   }
 
   uint16_t indices[] = {
@@ -937,10 +972,9 @@ void window::run() {
     mvp.view = camera::Singleton().getViewMatrix();
     mvp.projection = camera::Singleton().getProjectionMatrix(
         currentSize.width, currentSize.height);
-    struct pushConstant push = {
-        .aimingBlockModel = glm::translate(glm::mat4(1.f), {2.f, 1.f, 1.f}),
-        .colorRGBA = {0.f, 0.f, 0.f, 1.f},
-    };
+
+    block *aimingEntity = rayIntersection(camera::Singleton().position,
+                                          camera::Singleton().front);
 
     // TransferData
     cubeVerticesBuffer.TransferData(vertices, sizeof vertices);
@@ -953,9 +987,14 @@ void window::run() {
     };
 
     VkDeviceSize offset = 0;
-    { // outline
-      outlineCommandBuffer.Begin(
-          VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT, inheritanceInfo);
+    outlineCommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+                               inheritanceInfo);
+    if (aimingEntity != nullptr) { // outline
+      struct pushConstant push = {
+          .aimingBlockModel =
+              glm::translate(glm::mat4(1.f), glm::vec3(aimingEntity->position)),
+          .colorRGBA = {0.f, 0.f, 0.f, 1.f},
+      };
 
       // outlines
       vkCmdBindPipeline(outlineCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -971,9 +1010,8 @@ void window::run() {
                          VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant),
                          &push);
       vkCmdDrawIndexed(outlineCommandBuffer, 48, 1, 0, 0, 0);
-
-      outlineCommandBuffer.End();
     }
+    outlineCommandBuffer.End();
 
     { // cube
       cubeCommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
