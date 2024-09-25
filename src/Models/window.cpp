@@ -1,8 +1,9 @@
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
-#ifndef LIMIT_FRAME_RATE
 #define LIMIT_FRAME_RATE true
-#endif
+
+#define BOOT_SCREEN false
 
 #include "../Utils/VkResultThrowable.hpp"
 #include "../Utils/color.hpp"
@@ -39,9 +40,14 @@ struct alignas(16) MVP {
   glm::mat4 projection;
 };
 
-struct pushConstant {
+struct pushConstant_outline {
   glm::mat4 aimingBlockModel;
   glm::vec4 colorRGBA;
+};
+
+struct pushConstant_cursor {
+  VkExtent2D imageExtent;
+  VkExtent2D maskExtent;
 };
 
 window::window() {}
@@ -124,8 +130,7 @@ bool window::initialize() {
       printf("[ window ] ERROR: Invalid device index\n");
       continue;
     }
-    if (graphic::Singleton().DeterminePhysicalDevice(deviceIndex, true,
-                                                     false)) {
+    if (graphic::Singleton().DeterminePhysicalDevice(deviceIndex, true, true)) {
       printf(
           "[ window ] ERROR: Device not qualified for vulkan graphics queue\n");
       continue;
@@ -165,6 +170,8 @@ block *window::rayIntersection(const glm::vec3 start, const glm::vec3 direction,
 }
 
 void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
+  if (!BOOT_SCREEN)
+    return;
   VkExtent2D imageExtent;
   std::unique_ptr<uint8_t[]> pImageData = imageOperation::LoadFile_FileSystem(
       imagePath, imageExtent, formatInfo::FormatInfo(imageFormat));
@@ -319,8 +326,8 @@ void BootScreen(const char *imagePath, VkFormat imageFormat, bool *pLoading) {
 const rpwfUtils::renderPassWithFramebuffers &RenderPassAndFramebuffers() {
   static std::vector<vulkanWrapper::depthStencilAttachment> dsas_screenWithDS;
   static const rpwfUtils::renderPassWithFramebuffers &rpwf =
-      rpwfUtils::CreateRpwf_ScreenWithDS(VK_FORMAT_D24_UNORM_S8_UINT,
-                                         dsas_screenWithDS);
+      rpwfUtils::CreateRenderPassWithFramebuffers(VK_FORMAT_D24_UNORM_S8_UINT,
+                                                  dsas_screenWithDS);
   return rpwf;
 }
 
@@ -384,7 +391,7 @@ const void CreatePipelineOutline(vulkanWrapper::pipeline &pipeline,
                                  vulkanWrapper::pipelineLayout &layout) {
   static vulkanWrapper::shader vert("src/Shaders/outline.vert.spv");
   static vulkanWrapper::shader frag("src/Shaders/outline.frag.spv");
-  static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_3d[2] = {
+  static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_3d[] = {
       vert.StageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
       frag.StageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT)};
   auto Create = [&] {
@@ -440,6 +447,31 @@ const void CreatePipelineOutline(vulkanWrapper::pipeline &pipeline,
     pipelineCiPack.UpdateAllArrays();
     pipelineCiPack.createInfo.stageCount = 2;
     pipelineCiPack.createInfo.pStages = shaderStageCreateInfos_3d;
+
+    pipeline.Create(pipelineCiPack);
+  };
+
+  auto Destroy = [&] { pipeline.~pipeline(); };
+  graphic::Singleton().AddCreateSwapchainCallback(Create);
+  graphic::Singleton().AddDestroySwapchainCallback(Destroy);
+  Create();
+}
+
+const void CreatePipelineCursor(vulkanWrapper::pipeline &pipeline,
+                                vulkanWrapper::pipelineLayout &layout) {
+  static vulkanWrapper::shader comp("src/Shaders/cursor.comp.spv");
+  static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_3d[] = {
+      comp.StageCreateInfo(VK_SHADER_STAGE_COMPUTE_BIT),
+  };
+  auto Create = [&] {
+    const VkExtent2D &windowSize =
+        graphic::Singleton().SwapchainCreateInfo().imageExtent;
+    computePipelineCreateInfoPack pipelineCiPack;
+
+    pipelineCiPack.createInfo.layout = layout;
+    pipelineCiPack.createInfo.stage = shaderStageCreateInfos_3d[0];
+
+    pipelineCiPack.UpdateAllArrays();
 
     pipeline.Create(pipelineCiPack);
   };
@@ -796,10 +828,14 @@ void window::run() {
 
   vulkanWrapper::pipelineLayout cubePipelineLayout;
   vulkanWrapper::pipelineLayout outlinePipelineLayout;
+  vulkanWrapper::pipelineLayout cursorPipelineLayout;
+
   vulkanWrapper::pipeline cubePipeline;
   vulkanWrapper::pipeline outlinePipeline;
+  vulkanWrapper::pipeline cursorPipeline;
 
-  vulkanWrapper::descriptorSetLayout descSetLayout;
+  vulkanWrapper::descriptorSetLayout descSetLayout_mainRender;
+  vulkanWrapper::descriptorSetLayout descSetLayout_compute;
 
   const rpwfUtils::renderPassWithFramebuffers &rpwf =
       RenderPassAndFramebuffers();
@@ -833,58 +869,112 @@ void window::run() {
   bindings.push_back(instanceBufferDescSetLayoutBinding);
   bindings.push_back(textureDescriptorSetLayoutBinding);
 
-  const uint32_t bindingCount = bindings.size();
+  uint32_t bindingCount = bindings.size();
   VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
       .bindingCount = bindingCount, .pBindings = bindings.data()};
-  descSetLayout.Create(descriptorSetLayoutCreateInfo);
+  descSetLayout_mainRender.Create(descriptorSetLayoutCreateInfo);
 
-  VkPushConstantRange pushConstantRange = {
+  bindings.clear();
+
+  VkDescriptorSetLayoutBinding postProcessImageDescSetLayoutBinding = {
+      .binding = 0,
+      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+      .descriptorCount = 1,
+      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+  };
+  VkDescriptorSetLayoutBinding maskImageDescSetLayoutBinding = {
+      .binding = 1,
+      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+      .descriptorCount = 1,
+      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+  };
+
+  bindings.push_back(postProcessImageDescSetLayoutBinding);
+  bindings.push_back(maskImageDescSetLayoutBinding);
+  bindingCount = bindings.size();
+  descriptorSetLayoutCreateInfo.bindingCount = bindingCount;
+  descriptorSetLayoutCreateInfo.pBindings = bindings.data();
+  descSetLayout_compute.Create(descriptorSetLayoutCreateInfo);
+
+  VkPushConstantRange pushConstantRange_main = {
       .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
       .offset = 0,
-      .size = sizeof(pushConstant),
+      .size = sizeof(pushConstant_outline),
+  };
+  VkPushConstantRange pushConstantRange_cursor = {
+      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+      .offset = 0,
+      .size = sizeof(pushConstant_cursor),
   };
 
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_cube = {
       .setLayoutCount = 1,
-      .pSetLayouts = descSetLayout.Address(),
+      .pSetLayouts = descSetLayout_mainRender.Address(),
       .pushConstantRangeCount = 0,
   };
-
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_outline = {
       .setLayoutCount = 1,
-      .pSetLayouts = descSetLayout.Address(),
+      .pSetLayouts = descSetLayout_mainRender.Address(),
       .pushConstantRangeCount = 1,
-      .pPushConstantRanges = &pushConstantRange,
+      .pPushConstantRanges = &pushConstantRange_main,
+  };
+  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_cursor = {
+      .setLayoutCount = 1,
+      .pSetLayouts = descSetLayout_compute.Address(),
+      .pushConstantRangeCount = 1,
+      .pPushConstantRanges = &pushConstantRange_cursor,
   };
   cubePipelineLayout.Create(pipelineLayoutCreateInfo_cube);
   outlinePipelineLayout.Create(pipelineLayoutCreateInfo_outline);
+  cursorPipelineLayout.Create(pipelineLayoutCreateInfo_cursor);
 
   CreatePipelineCube(cubePipeline, cubePipelineLayout);
   CreatePipelineOutline(outlinePipeline, outlinePipelineLayout);
+  CreatePipelineCursor(cursorPipeline, cursorPipelineLayout);
 
-  std::vector<VkDescriptorPoolSize> descriptorPoolSizes = {
+  std::vector<VkDescriptorPoolSize> descriptorPoolSizes_main = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
       {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1},
   };
-  vulkanWrapper::descriptorPool descriptorPool(1, descriptorPoolSizes);
+  std::vector<VkDescriptorPoolSize> descriptorPoolSizes_cursor = {
+      {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+  };
+  vulkanWrapper::descriptorPool descriptorPool_main(1,
+                                                    descriptorPoolSizes_main);
+  vulkanWrapper::descriptorPool descriptorPool_cursor(
+      1, descriptorPoolSizes_cursor);
 
-  vulkanWrapper::descriptorSet descSet;
+  vulkanWrapper::descriptorSet descSet_main;
+  vulkanWrapper::descriptorSet descSet_cursor;
 
-  std::vector<VkDescriptorSet> descSetAllocateTransfer = {descSet};
-  std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {descSetLayout};
+  std::vector<VkDescriptorSet> descSetAllocateTransfer = {descSet_main};
+  std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
+      descSetLayout_mainRender};
+  descriptorPool_main.AllocateSets(descSetAllocateTransfer,
+                                   descriptorSetLayouts);
+  descSet_main = descSetAllocateTransfer[0];
 
-  descriptorPool.AllocateSets(descSetAllocateTransfer, descriptorSetLayouts);
-  descSet = descSetAllocateTransfer[0];
+  descSetAllocateTransfer[0] = descSet_cursor;
+  descriptorSetLayouts[0] = descSetLayout_compute;
+  descriptorPool_cursor.AllocateSets(descSetAllocateTransfer,
+                                     descriptorSetLayouts);
+  descSet_cursor = descSetAllocateTransfer[0];
 
   vulkanWrapper::sampler sampler;
   CreateSampler(sampler);
 
-  vulkanWrapper::texture2d texture("/home/awwwsl/code/learn/cpp/learnVulkan/"
-                                   "res/vulkanCraft/texture/lapis_block.png",
-                                   VK_FORMAT_R8G8B8A8_UNORM,
-                                   VK_FORMAT_R8G8B8A8_UNORM, true,
-                                   VK_FILTER_NEAREST);
+  // vulkanWrapper::texture2d texture("/home/awwwsl/code/learn/cpp/learnVulkan/"
+  //                                  "res/vulkanCraft/texture/lapis_block.png",
+  //                                  VK_FORMAT_R8G8B8A8_UNORM,
+  //                                  VK_FORMAT_R8G8B8A8_UNORM, true,
+  //                                  VK_FILTER_NEAREST);
+  vulkanWrapper::texture2d cursor("/home/awwwsl/code/learn/cpp/learnVulkan/res/"
+                                  "vulkanCraft/texture/cursor.png",
+                                  VK_FORMAT_R8G8B8A8_UNORM,
+                                  VK_FORMAT_R8G8B8A8_UNORM, false,
+                                  VK_FILTER_NEAREST);
   vulkanWrapper::dynamicTexture2d dynamicTexture(
       "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
       "diamond_block.png",
@@ -901,28 +991,34 @@ void window::run() {
       .offset = 0,
       .range = sizeof(MVP),
   };
-  VkDescriptorImageInfo imageInfo = {
+  VkDescriptorImageInfo cursorImageInfo = {
       .sampler = sampler,
-      .imageView = dynamicTexture.ImageViews()[0],
+      .imageView = cursor.ImageView(),
       .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   };
   std::vector<VkDescriptorBufferInfo> uboBufferInfos = {uniformBufferInfo_MVP};
-  std::vector<VkDescriptorImageInfo> imageInfos = {imageInfo};
   std::vector<VkDescriptorBufferInfo> storageBufferInfos = {
       storageBufferInfo_instance};
-  descSet.Write(uboBufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
-  descSet.Write(imageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
-  descSet.Write(storageBufferInfos, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2);
+  descSet_main.Write(uboBufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
+  descSet_main.Write(storageBufferInfos, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2);
+  // descSet_main.Write(cursorImageInfos,
+  //                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3);
 
   vulkanWrapper::fence fence(VK_FENCE_CREATE_SIGNALED_BIT);
   vulkanWrapper::semaphore semaphore_imageAvailable;
   vulkanWrapper::semaphore semaphore_renderFinished;
+  vulkanWrapper::semaphore semaphore_computeFinished;
 
   vulkanWrapper::commandBuffer primaryCommandBuffer;
 
   vulkanWrapper::commandBuffer cubeCommandBuffer;
   vulkanWrapper::commandBuffer outlineCommandBuffer;
-  std::vector<VkCommandBuffer> commandBufferTransports = {
+  vulkanWrapper::commandBuffer postProcessComputeBuffer;
+  std::vector<VkCommandBuffer> commandBufferTransports_primary = {
+      primaryCommandBuffer,
+      postProcessComputeBuffer,
+  };
+  std::vector<VkCommandBuffer> commandBufferTransports_secondary = {
       cubeCommandBuffer,
       outlineCommandBuffer,
   };
@@ -930,11 +1026,15 @@ void window::run() {
   vulkanWrapper::commandPool commandPool(
       graphic::Singleton().QueueFamilyIndex_Graphics(),
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-  commandPool.AllocateBuffers(primaryCommandBuffer);
-  commandPool.AllocateBuffers(commandBufferTransports,
+  commandPool.AllocateBuffers(commandBufferTransports_primary,
+                              VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+  commandPool.AllocateBuffers(commandBufferTransports_secondary,
                               VK_COMMAND_BUFFER_LEVEL_SECONDARY);
-  cubeCommandBuffer = commandBufferTransports[0];
-  outlineCommandBuffer = commandBufferTransports[1];
+  primaryCommandBuffer = commandBufferTransports_primary[0];
+  postProcessComputeBuffer = commandBufferTransports_primary[1];
+
+  cubeCommandBuffer = commandBufferTransports_secondary[0];
+  outlineCommandBuffer = commandBufferTransports_secondary[1];
 
   auto color = color::floatRGBA(101, 101, 101, 255);
   VkClearValue clearColor = {.color = {std::get<0>(color), std::get<1>(color),
@@ -956,13 +1056,6 @@ void window::run() {
       glfwWaitEvents();
     }
 
-    VkDescriptorImageInfo imageInfo = {
-        .sampler = sampler,
-        .imageView = dynamicTexture.ImageViews()[textureSelection / 15],
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    std::vector<VkDescriptorImageInfo> imageInfos = {imageInfo};
-    descSet.Write(imageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
-
     textureSelection++;
     textureSelection %= 120; // 0 - 7
     graphic::Singleton().SwapImage(semaphore_imageAvailable);
@@ -980,70 +1073,185 @@ void window::run() {
     cubeVerticesBuffer.TransferData(vertices, sizeof vertices);
     ubo_mvp.TransferData(&mvp, sizeof(MVP));
 
-    VkCommandBufferInheritanceInfo inheritanceInfo = {
+    VkDescriptorImageInfo textureImageInfo = {
+        .sampler = sampler,
+        .imageView = dynamicTexture.ImageViews()[textureSelection / 15],
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    std::vector<VkDescriptorImageInfo> imageInfos = {textureImageInfo};
+    descSet_main.Write(imageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                       1);
+    VkDescriptorImageInfo swapchainImageInfo = {
+        .sampler = nullptr,
+        .imageView = graphic::Singleton().SwapchainImageView(i),
+        .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+    };
+    std::vector<VkDescriptorImageInfo> swapchainImageInfos = {
+        swapchainImageInfo};
+    VkDescriptorImageInfo cursorImageInfo = {
+        .sampler = sampler,
+        .imageView = cursor.ImageView(),
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+    std::vector<VkDescriptorImageInfo> cursorImageInfos = {cursorImageInfo};
+    descSet_cursor.Write(swapchainImageInfos, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                         0);
+    descSet_cursor.Write(cursorImageInfos,
+                         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
+
+    VkCommandBufferInheritanceInfo inheritanceInfo_subpass0 = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
         .renderPass = renderPass,
+        .subpass = 0,
         .framebuffer = framebuffers[i],
     };
+    // VkCommandBufferInheritanceInfo inheritanceInfo_subpass1 = {
+    //     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
+    //     .renderPass = renderPass,
+    //     .subpass = 1,
+    //     .framebuffer = framebuffers[i],
+    // };
 
-    VkDeviceSize offset = 0;
-    outlineCommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
-                               inheritanceInfo);
-    if (aimingEntity != nullptr) { // outline
-      struct pushConstant push = {
-          .aimingBlockModel =
-              glm::translate(glm::mat4(1.f), glm::vec3(aimingEntity->position)),
-          .colorRGBA = {0.f, 0.f, 0.f, 1.f},
+    // main render
+    {
+      VkDeviceSize offset = 0;
+      outlineCommandBuffer.Begin(
+          VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+          inheritanceInfo_subpass0);
+      if (aimingEntity != nullptr) { // outline
+        struct pushConstant_outline push = {
+            .aimingBlockModel = glm::translate(
+                glm::mat4(1.f), glm::vec3(aimingEntity->position)),
+            .colorRGBA = {0.f, 0.f, 0.f, 1.f},
+        };
+
+        // outlines
+        vkCmdBindPipeline(outlineCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          outlinePipeline);
+        vkCmdBindDescriptorSets(
+            outlineCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            outlinePipelineLayout, 0, 1, descSet_main.Address(), 0, nullptr);
+        vkCmdBindVertexBuffers(outlineCommandBuffer, 0, 1,
+                               cubeVerticesBuffer.Address(), &offset);
+        vkCmdBindIndexBuffer(outlineCommandBuffer, cubeEdgeIndexBuffer, 0,
+                             VK_INDEX_TYPE_UINT16);
+        vkCmdPushConstants(outlineCommandBuffer, outlinePipelineLayout,
+                           VK_SHADER_STAGE_VERTEX_BIT, 0,
+                           sizeof(pushConstant_outline), &push);
+        vkCmdDrawIndexed(outlineCommandBuffer, 48, 1, 0, 0, 0);
+      }
+      outlineCommandBuffer.End();
+
+      { // cube
+        cubeCommandBuffer.Begin(
+            VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+            inheritanceInfo_subpass0);
+        vkCmdBindPipeline(cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          cubePipeline);
+
+        vkCmdBindVertexBuffers(cubeCommandBuffer, 0, 1,
+                               cubeVerticesBuffer.Address(), &offset);
+        vkCmdBindIndexBuffer(cubeCommandBuffer, cubeVertexIndexBuffer, 0,
+                             VK_INDEX_TYPE_UINT16);
+        vkCmdBindDescriptorSets(
+            cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            cubePipelineLayout, 0, 1, descSet_main.Address(), 0, nullptr);
+        vkCmdDrawIndexed(cubeCommandBuffer, 36, models.size(), 0, 0, 0);
+        cubeCommandBuffer.End();
+      }
+
+      // { // cursor
+      //   struct pushConstant_cursor push = {
+      //       .imageExtent =
+      //       graphic::Singleton().SwapchainCreateInfo().imageExtent,
+      //       .maskExtent = cursor.Extent(),
+      //   };
+      //   postProcessComputeBuffer.Begin(
+      //       VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+      //       inheritanceInfo_subpass1);
+      //   vkCmdBindPipeline(postProcessComputeBuffer,
+      //                     VK_PIPELINE_BIND_POINT_COMPUTE, cursorPipeline);
+      //   vkCmdBindDescriptorSets(
+      //       postProcessComputeBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+      //       cursorPipelineLayout, 0, 1, descSet_cursor.Address(), 0,
+      //       nullptr);
+      //   vkCmdPushConstants(postProcessComputeBuffer, cursorPipelineLayout,
+      //                      VK_SHADER_STAGE_COMPUTE_BIT, 0,
+      //                      sizeof(pushConstant_cursor), &push);
+      //   vkCmdDispatch(postProcessComputeBuffer, 1, 1, 1);
+      //   postProcessComputeBuffer.End();
+      // }
+
+      { // primary
+        primaryCommandBuffer.Begin();
+        renderPass.CmdBegin(primaryCommandBuffer, framebuffers[i],
+                            {{}, {framebuffers[i].Size()}}, clearValues,
+                            VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+
+        std::vector<VkCommandBuffer> subCommandBuffers = {
+            cubeCommandBuffer,
+            outlineCommandBuffer,
+        };
+        vkCmdExecuteCommands(primaryCommandBuffer, 2, subCommandBuffers.data());
+
+        // renderPass.CmdNext(primaryCommandBuffer,
+        //                    VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+        // VkCommandBuffer cursorCommandBufferVK = postProcessComputeBuffer;
+        // vkCmdExecuteCommands(primaryCommandBuffer, 1,
+        // &cursorCommandBufferVK);
+
+        renderPass.CmdEnd(primaryCommandBuffer);
+        primaryCommandBuffer.End();
+      }
+    }
+
+    { // post process
+      struct pushConstant_cursor push = {
+          .imageExtent = graphic::Singleton().SwapchainCreateInfo().imageExtent,
+          .maskExtent = cursor.Extent(),
+      };
+      postProcessComputeBuffer.Begin(
+          VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+      vkCmdBindPipeline(postProcessComputeBuffer,
+                        VK_PIPELINE_BIND_POINT_COMPUTE, cursorPipeline);
+      vkCmdBindDescriptorSets(
+          postProcessComputeBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+          cursorPipelineLayout, 0, 1, descSet_cursor.Address(), 0, nullptr);
+      vkCmdPushConstants(postProcessComputeBuffer, cursorPipelineLayout,
+                         VK_SHADER_STAGE_COMPUTE_BIT, 0,
+                         sizeof(pushConstant_cursor), &push);
+
+      VkImageMemoryBarrier barrier = {
+          .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+          .srcAccessMask = 0,
+          .dstAccessMask = 0,
+          .oldLayout = VK_IMAGE_LAYOUT_GENERAL,
+          .newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+          .srcQueueFamilyIndex =
+              VK_QUEUE_FAMILY_IGNORED, // 如果是同一个队列，可以设置为忽略
+          .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+          .image = graphic::Singleton().SwapchainImage(i), // 目标图像
+          .subresourceRange =
+              {
+                  .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                  .baseMipLevel = 0,
+                  .levelCount = 1,
+                  .baseArrayLayer = 0,
+                  .layerCount = 1,
+              },
       };
 
-      // outlines
-      vkCmdBindPipeline(outlineCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        outlinePipeline);
-      vkCmdBindDescriptorSets(
-          outlineCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-          outlinePipelineLayout, 0, 1, descSet.Address(), 0, nullptr);
-      vkCmdBindVertexBuffers(outlineCommandBuffer, 0, 1,
-                             cubeVerticesBuffer.Address(), &offset);
-      vkCmdBindIndexBuffer(outlineCommandBuffer, cubeEdgeIndexBuffer, 0,
-                           VK_INDEX_TYPE_UINT16);
-      vkCmdPushConstants(outlineCommandBuffer, outlinePipelineLayout,
-                         VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pushConstant),
-                         &push);
-      vkCmdDrawIndexed(outlineCommandBuffer, 48, 1, 0, 0, 0);
-    }
-    outlineCommandBuffer.End();
-
-    { // cube
-      cubeCommandBuffer.Begin(VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
-                              inheritanceInfo);
-      vkCmdBindPipeline(cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        cubePipeline);
-
-      vkCmdBindVertexBuffers(cubeCommandBuffer, 0, 1,
-                             cubeVerticesBuffer.Address(), &offset);
-      vkCmdBindIndexBuffer(cubeCommandBuffer, cubeVertexIndexBuffer, 0,
-                           VK_INDEX_TYPE_UINT16);
-      vkCmdBindDescriptorSets(
-          cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-          cubePipelineLayout, 0, 1, descSet.Address(), 0, nullptr);
-      vkCmdDrawIndexed(cubeCommandBuffer, 36, models.size(), 0, 0, 0);
-      cubeCommandBuffer.End();
-    }
-
-    { // primary
-      primaryCommandBuffer.Begin();
-      renderPass.CmdBegin(primaryCommandBuffer, framebuffers[i],
-                          {{}, {framebuffers[i].Size()}}, clearValues,
-                          VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-
-      std::vector<VkCommandBuffer> subCommandBuffers = {
-          cubeCommandBuffer,
-          outlineCommandBuffer,
-      };
-      vkCmdExecuteCommands(primaryCommandBuffer, 2, subCommandBuffers.data());
-
-      renderPass.CmdEnd(primaryCommandBuffer);
-      primaryCommandBuffer.End();
+      vkCmdDispatch(postProcessComputeBuffer, push.imageExtent.width,
+                    push.imageExtent.height, 1);
+      vkCmdPipelineBarrier(
+          postProcessComputeBuffer,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // 等待计算着色器完成
+          VK_PIPELINE_STAGE_TRANSFER_BIT, // 转换到传输阶段以支持呈现
+          0,                              // 不需要依赖
+          0, nullptr,                     // 不需要任何其他内存障碍
+          0, nullptr,                     // 不需要其他依赖
+          1, &barrier                     // 布局转换的障碍
+      );
+      postProcessComputeBuffer.End();
     }
 
     graphic::Singleton().SubmitCommandBuffer_Graphics(
@@ -1052,7 +1260,24 @@ void window::run() {
         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-    graphic::Singleton().PresentImage(semaphore_renderFinished);
+    fence.WaitAndReset();
+
+    VkPipelineStageFlags pipelineStageFlag =
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    VkCommandBuffer commandBufferVK = postProcessComputeBuffer;
+    VkSubmitInfo computeSubmitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = semaphore_renderFinished.Address(),
+        .pWaitDstStageMask = &pipelineStageFlag,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &commandBufferVK,
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = semaphore_computeFinished.Address(),
+    };
+    graphic::Singleton().SubmitCommandBuffer_Compute(computeSubmitInfo, fence);
+
+    graphic::Singleton().PresentImage(semaphore_computeFinished);
     glfwPollEvents();
     updateLogic();
 

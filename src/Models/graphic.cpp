@@ -889,6 +889,8 @@ VkResultThrowable graphic::CreateSwapchain(bool limitFrameRate,
     swapchainCreateInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
   if (surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
     swapchainCreateInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+  if (surfaceCapabilities.supportedUsageFlags & VK_IMAGE_USAGE_STORAGE_BIT)
+    swapchainCreateInfo.imageUsage |= VK_IMAGE_USAGE_STORAGE_BIT;
   else
     printf("[ graphicsBase ] WARNING: VK_IMAGE_USAGE_TRANSFER_DST_BIT isn't "
            "supported!\n");

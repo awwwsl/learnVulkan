@@ -32,10 +32,12 @@ VkResultThrowable vulkanWrapper::imageView::Create(
     VkImage image, VkImageViewType viewType, VkFormat format,
     const VkImageSubresourceRange &subresourceRange,
     VkImageViewCreateFlags flags) {
-  VkImageViewCreateInfo createInfo = {.flags = flags,
-                                      .image = image,
-                                      .viewType = viewType,
-                                      .format = format,
-                                      .subresourceRange = subresourceRange};
+  VkImageViewCreateInfo createInfo = {
+      .flags = flags,
+      .image = image,
+      .viewType = viewType,
+      .format = format,
+      .subresourceRange = subresourceRange,
+  };
   return Create(createInfo);
 }

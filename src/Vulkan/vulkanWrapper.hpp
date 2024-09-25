@@ -7,6 +7,7 @@
 #include "colorAttachment.hpp"
 #include "commandBuffer.hpp"
 #include "commandPool.hpp"
+#include "computePipelineCreateInfoPack.hpp"
 #include "depthStencilAttachment.hpp"
 #include "descriptorPool.hpp"
 #include "descriptorSet.hpp"
