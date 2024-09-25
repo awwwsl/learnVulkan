@@ -14,3 +14,7 @@ block *world::getEntity(glm::ivec3 position) {
 void world::setEntity(glm::ivec3 position, block e) {
   entities.emplace(position, e);
 }
+
+size_t world::removeEntity(glm::ivec3 position) {
+  return entities.erase(position);
+}

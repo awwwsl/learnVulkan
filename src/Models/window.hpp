@@ -30,7 +30,7 @@ private:
   bool iconified = false;
 
   block *rayIntersection(const glm::vec3 start, const glm::vec3 direction,
-                         const float maxDistance = 5.0f);
+                         const float maxDistance = 5.0f, int *facing = nullptr);
 
   inline void updatePerPeriod(
       std::chrono::duration<double> interval,

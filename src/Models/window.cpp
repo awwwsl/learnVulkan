@@ -29,6 +29,16 @@
 
 namespace learnVulkan {
 
+enum class Face {
+  UNDEFINED = 0,
+  FRONT = 1,
+  BACK = 2,
+  LEFT = 3,
+  RIGHT = 4,
+  TOP = 5,
+  BOTTOM = 6,
+};
+
 struct vertex {
   glm::vec3 position;
   glm::vec2 texCoord;
@@ -51,10 +61,15 @@ struct pushConstant_cursor {
   uint32_t cursorScale;
 };
 
+int32_t facing = int32_t(Face::UNDEFINED);
+block *aimingEntity = nullptr;
+
 window::window() {}
 
 bool window::initialize() {
   // glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_WAYLAND);
+
+  printf("[ GLFW ] INFO: GLFW version: %s\n", glfwGetVersionString());
 
   if (!glfwInit()) {
     printf("[ window ] FATAL: Failed to initialize GLFW\n");
@@ -158,12 +173,30 @@ bool window::initialize() {
 }
 
 block *window::rayIntersection(const glm::vec3 start, const glm::vec3 direction,
-                               const float maxDistance) {
+                               const float maxDistance, int *facing) {
   glm::vec3 now = start;
+  glm::ivec3 current(glm::round(now));
+  if (auto *entity = worldInstance.getEntity(current)) {
+    return nullptr; // emerged by block
+  }
   while (glm::distance(now, start) < maxDistance) {
     now += direction * 0.01f;
     glm::ivec3 current(glm::round(now));
     if (auto *entity = worldInstance.getEntity(current)) {
+      if (facing) {
+        Face face;
+        glm::vec3 diff = now - glm::vec3(current);
+        if (glm::abs(diff.x) > glm::abs(diff.y) &&
+            glm::abs(diff.x) > glm::abs(diff.z)) {
+          face = (direction.x > 0) ? Face::LEFT : Face::RIGHT;
+        } else if (glm::abs(diff.y) > glm::abs(diff.x) &&
+                   glm::abs(diff.y) > glm::abs(diff.z)) {
+          face = (direction.y > 0) ? Face::TOP : Face::BOTTOM;
+        } else {
+          face = (direction.z > 0) ? Face::BACK : Face::FRONT;
+        }
+        *facing = int(face);
+      }
       return entity;
     }
   }
@@ -683,21 +716,63 @@ void window::run() {
             if (camera::Singleton().yaw < -180.0f)
               camera::Singleton().yaw += 360.0f;
             camera::Singleton().updateCameraVectors();
+          }
+        });
 
+    glfwSetMouseButtonCallback(
+        glfwWindow, [](GLFWwindow *window, int button, int action, int mods) {
+          class window *self = (class window *)glfwGetWindowUserPointer(window);
+          if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+            if (!aimingEntity) {
 #ifndef NDEBUG
-        // printf("[ window ] DEBUG: glfwSetCursorPosCallback triggered: "
-        //        "offset(%.2f,%.2f)\n",
-        //        xoffset, yoffset);
-        // printf("[ window ] DEBUG: camera(yaw: %.2f, pitch: %.2f)\n",
-        //        camera::Singleton().yaw, camera::Singleton().pitch);
-        // printf("[ window ] DEBUG: camera(front(%.2f,%.2f,%.2f), "
-        //        "right(%.2f,%.2f,%.2f), up(%.2f,%.2f,%.2f))\n",
-        //        camera::Singleton().front.x, camera::Singleton().front.y,
-        //        camera::Singleton().front.z, camera::Singleton().right.x,
-        //        camera::Singleton().right.y, camera::Singleton().right.z,
-        //        camera::Singleton().up.x, camera::Singleton().up.y,
-        //        camera::Singleton().up.z);
+              printf("[ window ] DEBUG: Aiming air\n");
 #endif
+              return;
+            }
+            glm::ivec3 position = aimingEntity->position;
+            switch (Face(facing)) {
+            case Face::FRONT:
+              position += glm::ivec3(0, 0, 1);
+              break;
+            case Face::BACK:
+              position += glm::ivec3(0, 0, -1);
+              break;
+            case Face::LEFT:
+              position += glm::ivec3(-1, 0, 0);
+              break;
+            case Face::RIGHT:
+              position += glm::ivec3(1, 0, 0);
+              break;
+            case Face::TOP: // vulkan reverse y
+              position -= glm::ivec3(0, 1, 0);
+              break;
+            case Face::BOTTOM:
+              position -= glm::ivec3(0, -1, 0);
+              break;
+            default:
+              return;
+              break;
+            }
+            block entity(position);
+            self->worldInstance.setEntity(position, entity);
+#ifndef NDEBUG
+            printf("[ window ] DEBUG: Placing block: position(%d, %d, %d)\n",
+                   position.x, position.y, position.z);
+#endif
+          }
+          if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+            if (!aimingEntity) {
+#ifndef NDEBUG
+              printf("[ window ] DEBUG: Aiming air\n");
+#endif
+              return;
+            }
+#ifndef NDEBUG
+            printf("[ window ] DEBUG: Removing block: position(%d, %d, %d)\n",
+                   aimingEntity->position.x, aimingEntity->position.y,
+                   aimingEntity->position.z);
+#endif
+            self->worldInstance.removeEntity(aimingEntity->position);
           }
         });
 
@@ -779,13 +854,7 @@ void window::run() {
   // }
 
   worldInstance.initializeWorld();
-  uint64_t size = worldInstance.entities.size();
-  std::vector<glm::mat4> models(size);
-  uint64_t index = 0;
-  for (auto &entity : worldInstance.entities) {
-    models[index] = entity.second.getModelMatrix();
-    index++;
-  }
+  std::vector<glm::mat4> models = worldInstance.getModelMatrics();
 
   uint16_t indices[] = {
       // CW order
@@ -814,7 +883,7 @@ void window::run() {
   cubeVerticesBuffer.TransferData(vertices, sizeof vertices);
 
   vulkanWrapper::storageBuffer instanceBuffer(sizeof(glm::mat4) *
-                                              models.size());
+                                              models.size() * 8);
   // vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) *
   // models.size());
   instanceBuffer.TransferData(models.data(), sizeof(glm::mat4) * models.size());
@@ -966,7 +1035,8 @@ void window::run() {
   vulkanWrapper::sampler sampler;
   CreateSampler(sampler);
 
-  // vulkanWrapper::texture2d texture("/home/awwwsl/code/learn/cpp/learnVulkan/"
+  // vulkanWrapper::texture2d
+  // texture("/home/awwwsl/code/learn/cpp/learnVulkan/"
   //                                  "res/vulkanCraft/texture/lapis_block.png",
   //                                  VK_FORMAT_R8G8B8A8_UNORM,
   //                                  VK_FORMAT_R8G8B8A8_UNORM, true,
@@ -1057,6 +1127,10 @@ void window::run() {
       glfwWaitEvents();
     }
 
+    std::vector<glm::mat4> models = worldInstance.getModelMatrics();
+    instanceBuffer.TransferData(models.data(),
+                                sizeof(glm::mat4) * models.size());
+
     textureSelection++;
     textureSelection %= 120; // 0 - 7
     graphic::Singleton().SwapImage(semaphore_imageAvailable);
@@ -1067,8 +1141,8 @@ void window::run() {
     mvp.projection = camera::Singleton().getProjectionMatrix(
         currentSize.width, currentSize.height);
 
-    block *aimingEntity = rayIntersection(camera::Singleton().position,
-                                          camera::Singleton().front);
+    aimingEntity = rayIntersection(camera::Singleton().position,
+                                   camera::Singleton().front, 5.0f, &facing);
 
     // TransferData
     cubeVerticesBuffer.TransferData(vertices, sizeof vertices);

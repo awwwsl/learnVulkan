@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 struct glm_ivec3_hash {
   template <typename T> std::size_t operator()(const T &position) const {
@@ -14,7 +15,7 @@ struct glm_ivec3_hash {
 
 class world {
 
-  static const constexpr glm::ivec3 initializeWorldSize = {16, 256, 16};
+  static const constexpr glm::ivec3 initializeWorldSize = {16, 16, 16};
 
 public:
   world();
@@ -31,6 +32,11 @@ public:
   }
   void setEntity(glm::ivec3 position, block e);
 
+  inline size_t removeEntity(int64_t x, int64_t y, int64_t z) {
+    return removeEntity(glm::ivec3(x, y, z));
+  }
+  size_t removeEntity(glm::ivec3 position);
+
   inline void initializeWorld() {
     int64_t x = initializeWorldSize.x, y = initializeWorldSize.y,
             z = initializeWorldSize.z;
@@ -42,5 +48,13 @@ public:
         }
       }
     }
+  }
+
+  inline std::vector<glm::mat4> getModelMatrics() {
+    std::vector<glm::mat4> models(entities.size());
+    for (auto &entity : entities) {
+      models.push_back(entity.second.getModelMatrix());
+    }
+    return models;
   }
 };

@@ -3,6 +3,7 @@
 
 #include "Models/window.hpp"
 
+#include <GLFW/glfw3.h>
 #include <stdexcept>
 
 void destroy() {
@@ -13,6 +14,9 @@ void destroy() {
 int main(int argc, char *argv[]) {
 #ifndef NDEBUG
   printf("Debug mode\n");
+  glfwSetErrorCallback([](int error, const char *description) {
+    printf("[ GLFW ] Error: %s\n", description);
+  });
 #else
   printf("Release mode\n");
 #endif
