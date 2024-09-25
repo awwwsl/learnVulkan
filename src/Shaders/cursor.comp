@@ -5,25 +5,26 @@ layout(set = 0, binding = 0, rgba32f) uniform image2D i_Image;
 layout(set = 0, binding = 1) uniform sampler2D i_Mask;
 
 layout(push_constant) uniform PushConstants {
-  uvec2 imageExtent; // 图像尺寸
-  uvec2 maskExtent;  // 遮罩尺寸
+  uvec2 imageExtent; // (Original)
+  uvec2 maskExtent;  // (Multiplied)
+  uint maskScale;    // (Multiplier)
 } pc;
 
 void main() {
-  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  vec4 color = imageLoad(i_Image, coord);
+  uvec2 maskExtentCoord = gl_GlobalInvocationID.xy;
+  vec2 maskCoord = vec2(maskExtentCoord) / vec2(pc.maskExtent);
 
-  // 计算遮罩的中心偏移
-  uvec2 maskOffset = (pc.imageExtent - pc.maskExtent) / 2;
-  vec2 maskCoord = (vec2(coord) - vec2(maskOffset)) / vec2(pc.maskExtent);
-
-  // 判断是否在遮罩区域内
-  bool isMasked = coord.x >= maskOffset.x && coord.y >= maskOffset.y &&
-                  coord.x < maskOffset.x + pc.maskExtent.x &&
-                  coord.y < maskOffset.y + pc.maskExtent.y &&
-                  texture(i_Mask, maskCoord).a > 0.5;
-
-  if (isMasked) {
-    imageStore(i_Image, coord, vec4(vec3(1.0f) - color.rgb, color.a));
+  vec4 maskColor = texture(i_Mask, maskCoord);
+  if (maskColor.a < 0.5) {
+    return;
   }
+
+  uvec2 imageCenter = pc.imageExtent / 2;
+  uvec2 maskCenter = pc.maskExtent / 2;
+
+  uvec2 imageCoord = imageCenter + (maskExtentCoord - maskCenter);
+
+  vec4 imageColor = imageLoad(i_Image, ivec2(imageCoord)); // HACK: unsafe conversion
+
+  imageStore(i_Image, ivec2(imageCoord), vec4(vec3(1.0f) - imageColor.rgb, imageColor.a)); // unsafe as well
 }

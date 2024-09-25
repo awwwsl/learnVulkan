@@ -47,7 +47,8 @@ struct pushConstant_outline {
 
 struct pushConstant_cursor {
   VkExtent2D imageExtent;
-  VkExtent2D maskExtent;
+  VkExtent2D maskExtentMultiplied;
+  uint32_t cursorScale;
 };
 
 window::window() {}
@@ -1207,8 +1208,12 @@ void window::run() {
     { // post process
       struct pushConstant_cursor push = {
           .imageExtent = graphic::Singleton().SwapchainCreateInfo().imageExtent,
-          .maskExtent = cursor.Extent(),
+          .maskExtentMultiplied = cursor.Extent(),
+          .cursorScale = 2,
       };
+      push.maskExtentMultiplied.width *= push.cursorScale;
+      push.maskExtentMultiplied.height *= push.cursorScale;
+
       postProcessComputeBuffer.Begin(
           VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
       vkCmdBindPipeline(postProcessComputeBuffer,
@@ -1240,8 +1245,8 @@ void window::run() {
               },
       };
 
-      vkCmdDispatch(postProcessComputeBuffer, push.imageExtent.width,
-                    push.imageExtent.height, 1);
+      vkCmdDispatch(postProcessComputeBuffer, push.maskExtentMultiplied.width,
+                    push.maskExtentMultiplied.height, 1);
       vkCmdPipelineBarrier(
           postProcessComputeBuffer,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // 等待计算着色器完成
