@@ -1,3 +1,9 @@
+#include "Vulkan/descriptorPool.hpp"
+#include "Vulkan/descriptorSet.hpp"
+#include "Vulkan/dynamicTexture.hpp"
+#include "Vulkan/pipeline.hpp"
+#include "Vulkan/pipelineLayout.hpp"
+#include <glm/ext/matrix_transform.hpp>
 #include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
@@ -59,6 +65,10 @@ struct pushConstant_cursor {
   VkExtent2D imageExtent;
   VkExtent2D maskExtentMultiplied;
   uint32_t cursorScale;
+};
+
+struct pushConstant_skybox {
+  uint32_t facing;
 };
 
 int32_t facing = int32_t(Face::UNDEFINED);
@@ -491,6 +501,71 @@ const void CreatePipelineOutline(vulkanWrapper::pipeline &pipeline,
   Create();
 }
 
+const void CreatePipelineSkybox(vulkanWrapper::pipeline &pipeline,
+                                vulkanWrapper::pipelineLayout &layout) {
+  static vulkanWrapper::shader vert("src/Shaders/skybox.vert.spv");
+  static vulkanWrapper::shader frag("src/Shaders/skybox.frag.spv");
+  static VkPipelineShaderStageCreateInfo shaderStageCreateInfos_3d[] = {
+      vert.StageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
+      frag.StageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT),
+  };
+  auto Create = [&] {
+    const VkExtent2D &windowSize =
+        graphic::Singleton().SwapchainCreateInfo().imageExtent;
+    graphicsPipelineCreateInfoPack pipelineCiPack;
+
+    pipelineCiPack.vertexInputBindings.emplace_back(
+        0, sizeof(vertex), VK_VERTEX_INPUT_RATE_VERTEX);
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vertex, position));
+    pipelineCiPack.vertexInputAttributes.emplace_back(
+        1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(vertex, texCoord));
+
+    pipelineCiPack.createInfo.layout = layout;
+    pipelineCiPack.createInfo.renderPass =
+        RenderPassAndFramebuffers().renderPass;
+
+    pipelineCiPack.inputAssemblyStateCi.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    pipelineCiPack.inputAssemblyStateCi.topology =
+        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    pipelineCiPack.inputAssemblyStateCi.primitiveRestartEnable = VK_FALSE;
+
+    pipelineCiPack.viewports.emplace_back(0.f, 0.f, float(windowSize.width),
+                                          float(windowSize.height), 0.f, 1.f);
+    pipelineCiPack.scissors.emplace_back(VkOffset2D{}, windowSize);
+
+    pipelineCiPack.rasterizationStateCi.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    pipelineCiPack.rasterizationStateCi.polygonMode = VK_POLYGON_MODE_FILL;
+
+    pipelineCiPack.rasterizationStateCi.cullMode = VK_CULL_MODE_FRONT_BIT;
+    pipelineCiPack.rasterizationStateCi.frontFace =
+        VK_FRONT_FACE_CLOCKWISE; // 默认值，为0
+
+    pipelineCiPack.multisampleStateCi.rasterizationSamples =
+        VK_SAMPLE_COUNT_1_BIT;
+
+    pipelineCiPack.depthStencilStateCi.depthTestEnable = VK_TRUE;
+    pipelineCiPack.depthStencilStateCi.depthWriteEnable = VK_FALSE;
+    pipelineCiPack.depthStencilStateCi.depthCompareOp =
+        VK_COMPARE_OP_LESS_OR_EQUAL;
+
+    pipelineCiPack.colorBlendAttachmentStates.push_back(
+        {.colorWriteMask = 0b1111});
+    pipelineCiPack.UpdateAllArrays();
+    pipelineCiPack.createInfo.stageCount = 2;
+    pipelineCiPack.createInfo.pStages = shaderStageCreateInfos_3d;
+
+    pipeline.Create(pipelineCiPack);
+  };
+
+  auto Destroy = [&] { pipeline.~pipeline(); };
+  graphic::Singleton().AddCreateSwapchainCallback(Create);
+  graphic::Singleton().AddDestroySwapchainCallback(Destroy);
+  Create();
+}
+
 const void CreatePipelineCursor(vulkanWrapper::pipeline &pipeline,
                                 vulkanWrapper::pipelineLayout &layout) {
   static vulkanWrapper::shader comp("src/Shaders/cursor.comp.spv");
@@ -790,30 +865,18 @@ void window::run() {
   registerLogicUpdateCallback();
   registerGLFWCallback();
 
-  vertex vertices[] = {
-      // Front face (CW order)
-      {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f}},
-      {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f}},
-      {{0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}},
-      {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}},
-
-      // Back face (CW order)
-      {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}},
-      {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f}},
-      {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f}},
-      {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f}},
+  vertex cubeVertices[] = {
+      // Right face (CW order)
+      {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f}},
+      {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f}},
+      {{0.5f, 0.5f, -0.5f}, {1.0f, 1.0f}},
+      {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}},
 
       // Left face (CW order)
       {{-0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}},
       {{-0.5f, -0.5f, 0.5f}, {1.0f, 0.0f}},
       {{-0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}},
       {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f}},
-
-      // Right face (CW order)
-      {{0.5f, -0.5f, 0.5f}, {0.0f, 0.0f}},
-      {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f}},
-      {{0.5f, 0.5f, -0.5f}, {1.0f, 1.0f}},
-      {{0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}},
 
       // Top face (CW order)
       {{-0.5f, 0.5f, 0.5f}, {0.0f, 0.0f}},
@@ -826,32 +889,20 @@ void window::run() {
       {{0.5f, -0.5f, -0.5f}, {1.0f, 0.0f}},
       {{0.5f, -0.5f, 0.5f}, {1.0f, 1.0f}},
       {{-0.5f, -0.5f, 0.5f}, {0.0f, 1.0f}},
-  };
 
-  // glm::mat4 models[20][10][10];
-  // for (int i = 0; i < 10; i++) {
-  //   for (int j = 0; j < 10; j++) {
-  //     for (int k = 0; k < 10; k++) {
-  //       models[i][j][k] = glm::translate(glm::mat4(1.f),
-  //                                        glm::vec3(i * 2.f, j * 2.f, k
-  //                                        * 2.f));
-  //     }
-  //   }
-  // }
-  // for (int i = 10; i < 20; i++) {
-  //   for (int j = 0; j < 10; j++) {
-  //     for (int k = 0; k < 10; k++) {
-  //       models[i][j][k] =
-  //           glm::translate(glm::mat4(1.f), glm::vec3(i + 15.f, j, k));
-  //     }
-  //   }
-  // }
-  // glm::mat4 models[50][50];
-  // for (int i = 0; i < 50; i++) {
-  //   for (int j = 0; j < 50; j++) {
-  //     models[i][j] = glm::translate(glm::mat4(1.f), glm::vec3(0.f, i, j));
-  //   }
-  // }
+      // Front face (CW order)
+      {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f}},
+      {{0.5f, -0.5f, 0.5f}, {1.0f, 0.0f}},
+      {{0.5f, 0.5f, 0.5f}, {1.0f, 1.0f}},
+      {{-0.5f, 0.5f, 0.5f}, {0.0f, 1.0f}},
+
+      // Back face (CW order)
+      {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f}},
+      {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f}},
+      {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f}},
+      {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f}},
+
+  };
 
   worldInstance.initializeWorld();
   std::vector<glm::mat4> models = worldInstance.getModelMatrics();
@@ -879,8 +930,8 @@ void window::run() {
                       // Bottom face
                       20, 21, 21, 22, 22, 23, 23, 20};
 
-  vulkanWrapper::vertexBuffer cubeVerticesBuffer(sizeof vertices);
-  cubeVerticesBuffer.TransferData(vertices, sizeof vertices);
+  vulkanWrapper::vertexBuffer cubeVerticesBuffer(sizeof cubeVertices);
+  cubeVerticesBuffer.TransferData(cubeVertices, sizeof cubeVertices);
 
   vulkanWrapper::storageBuffer instanceBuffer(sizeof(glm::mat4) *
                                               models.size() * 8);
@@ -899,13 +950,16 @@ void window::run() {
   vulkanWrapper::pipelineLayout cubePipelineLayout;
   vulkanWrapper::pipelineLayout outlinePipelineLayout;
   vulkanWrapper::pipelineLayout cursorPipelineLayout;
+  vulkanWrapper::pipelineLayout skyboxPipelineLayout;
 
   vulkanWrapper::pipeline cubePipeline;
   vulkanWrapper::pipeline outlinePipeline;
   vulkanWrapper::pipeline cursorPipeline;
+  vulkanWrapper::pipeline skyboxPipeline;
 
   vulkanWrapper::descriptorSetLayout descSetLayout_mainRender;
   vulkanWrapper::descriptorSetLayout descSetLayout_compute;
+  vulkanWrapper::descriptorSetLayout descSetLayout_skybox;
 
   const rpwfUtils::renderPassWithFramebuffers &rpwf =
       RenderPassAndFramebuffers();
@@ -913,58 +967,90 @@ void window::run() {
   const std::vector<vulkanWrapper::framebuffer> &framebuffers =
       rpwf.framebuffers;
 
-  std::vector<VkDescriptorSetLayoutBinding> bindings;
-  VkDescriptorSetLayoutBinding uboDescriptorSetLayoutBinding = {
-      .binding = 0, // 描述符被绑定到0号binding
-      .descriptorType =
-          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
-      .descriptorCount = 1,                  // 个数是1个
-      .stageFlags =
-          VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
-  };
-  VkDescriptorSetLayoutBinding instanceBufferDescSetLayoutBinding = {
-      .binding = 2,
-      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = 1,
-      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-  };
-  VkDescriptorSetLayoutBinding textureDescriptorSetLayoutBinding = {
-      .binding = 1,
-      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      .descriptorCount = 1,
-      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-  };
+  {   // alloc descset
+    { // main render
+      std::vector<VkDescriptorSetLayoutBinding> bindings;
+      VkDescriptorSetLayoutBinding uboDescriptorSetLayoutBinding = {
+          .binding = 0, // 描述符被绑定到0号binding
+          .descriptorType =
+              VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
+          .descriptorCount = 1,                  // 个数是1个
+          .stageFlags =
+              VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
+      };
+      VkDescriptorSetLayoutBinding instanceBufferDescSetLayoutBinding = {
+          .binding = 2,
+          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+          .descriptorCount = 1,
+          .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+      };
+      VkDescriptorSetLayoutBinding cubeTextureDescriptorSetLayoutBinding = {
+          .binding = 1,
+          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          .descriptorCount = 1,
+          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+      };
 
-  bindings.push_back(uboDescriptorSetLayoutBinding);
-  bindings.push_back(instanceBufferDescSetLayoutBinding);
-  bindings.push_back(textureDescriptorSetLayoutBinding);
+      bindings.push_back(uboDescriptorSetLayoutBinding);
+      bindings.push_back(instanceBufferDescSetLayoutBinding);
+      bindings.push_back(cubeTextureDescriptorSetLayoutBinding);
 
-  uint32_t bindingCount = bindings.size();
-  VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
-      .bindingCount = bindingCount, .pBindings = bindings.data()};
-  descSetLayout_mainRender.Create(descriptorSetLayoutCreateInfo);
+      uint32_t bindingCount = bindings.size();
+      VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+          .bindingCount = bindingCount, .pBindings = bindings.data()};
+      descSetLayout_mainRender.Create(descriptorSetLayoutCreateInfo);
+    }
 
-  bindings.clear();
+    { // compute
+      std::vector<VkDescriptorSetLayoutBinding> bindings;
+      VkDescriptorSetLayoutBinding postProcessImageDescSetLayoutBinding = {
+          .binding = 0,
+          .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+          .descriptorCount = 1,
+          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+      };
+      VkDescriptorSetLayoutBinding maskImageDescSetLayoutBinding = {
+          .binding = 1,
+          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          .descriptorCount = 1,
+          .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+      };
 
-  VkDescriptorSetLayoutBinding postProcessImageDescSetLayoutBinding = {
-      .binding = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-      .descriptorCount = 1,
-      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-  };
-  VkDescriptorSetLayoutBinding maskImageDescSetLayoutBinding = {
-      .binding = 1,
-      .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      .descriptorCount = 1,
-      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-  };
+      bindings.push_back(postProcessImageDescSetLayoutBinding);
+      bindings.push_back(maskImageDescSetLayoutBinding);
+      const uint32_t bindingCount = bindings.size();
+      VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+          .bindingCount = bindingCount, .pBindings = bindings.data()};
+      descSetLayout_compute.Create(descriptorSetLayoutCreateInfo);
+    }
 
-  bindings.push_back(postProcessImageDescSetLayoutBinding);
-  bindings.push_back(maskImageDescSetLayoutBinding);
-  bindingCount = bindings.size();
-  descriptorSetLayoutCreateInfo.bindingCount = bindingCount;
-  descriptorSetLayoutCreateInfo.pBindings = bindings.data();
-  descSetLayout_compute.Create(descriptorSetLayoutCreateInfo);
+    { // skybox
+      std::vector<VkDescriptorSetLayoutBinding> skyboxImageDescSetLayoutBinding(
+          7);
+      skyboxImageDescSetLayoutBinding[0] = {
+          .binding = 0, // 描述符被绑定到0号binding
+          .descriptorType =
+              VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, // 类型为uniform缓冲区
+          .descriptorCount = 1,                  // 个数是1个
+          .stageFlags =
+              VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
+      };
+      for (uint32_t i = 1; i < 7; i++) {
+        skyboxImageDescSetLayoutBinding[i] = {
+            .binding = i,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+        };
+      }
+
+      const uint32_t bindingCount = skyboxImageDescSetLayoutBinding.size();
+      VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
+          .bindingCount = bindingCount,
+          .pBindings = skyboxImageDescSetLayoutBinding.data()};
+      descSetLayout_skybox.Create(descriptorSetLayoutCreateInfo);
+    }
+  }
 
   VkPushConstantRange pushConstantRange_main = {
       .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
@@ -975,6 +1061,11 @@ void window::run() {
       .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
       .offset = 0,
       .size = sizeof(pushConstant_cursor),
+  };
+  VkPushConstantRange pushConstantRange_skybox = {
+      .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+      .offset = 0,
+      .size = sizeof(pushConstant_skybox),
   };
 
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_cube = {
@@ -994,43 +1085,71 @@ void window::run() {
       .pushConstantRangeCount = 1,
       .pPushConstantRanges = &pushConstantRange_cursor,
   };
+  VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_skybox = {
+      .setLayoutCount = 1,
+      .pSetLayouts = descSetLayout_skybox.Address(),
+      .pushConstantRangeCount = 1,
+      .pPushConstantRanges = &pushConstantRange_skybox,
+  };
   cubePipelineLayout.Create(pipelineLayoutCreateInfo_cube);
   outlinePipelineLayout.Create(pipelineLayoutCreateInfo_outline);
   cursorPipelineLayout.Create(pipelineLayoutCreateInfo_cursor);
+  skyboxPipelineLayout.Create(pipelineLayoutCreateInfo_skybox);
 
   CreatePipelineCube(cubePipeline, cubePipelineLayout);
   CreatePipelineOutline(outlinePipeline, outlinePipelineLayout);
   CreatePipelineCursor(cursorPipeline, cursorPipelineLayout);
+  CreatePipelineSkybox(skyboxPipeline, skyboxPipelineLayout);
 
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes_main = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
       {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1},
+
   };
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes_cursor = {
       {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
   };
+  std::vector<VkDescriptorPoolSize> descriptorPoolSizes_skybox = {
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6},
+  };
   vulkanWrapper::descriptorPool descriptorPool_main(1,
                                                     descriptorPoolSizes_main);
   vulkanWrapper::descriptorPool descriptorPool_cursor(
       1, descriptorPoolSizes_cursor);
+  vulkanWrapper::descriptorPool descriptorPool_skybox(
+      6, descriptorPoolSizes_skybox);
 
   vulkanWrapper::descriptorSet descSet_main;
   vulkanWrapper::descriptorSet descSet_cursor;
+  vulkanWrapper::descriptorSet descSet_skybox;
 
-  std::vector<VkDescriptorSet> descSetAllocateTransfer = {descSet_main};
-  std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
-      descSetLayout_mainRender};
-  descriptorPool_main.AllocateSets(descSetAllocateTransfer,
-                                   descriptorSetLayouts);
-  descSet_main = descSetAllocateTransfer[0];
-
-  descSetAllocateTransfer[0] = descSet_cursor;
-  descriptorSetLayouts[0] = descSetLayout_compute;
-  descriptorPool_cursor.AllocateSets(descSetAllocateTransfer,
+  {
+    std::vector<VkDescriptorSet> descSetAllocateTransfer = {descSet_main};
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
+        descSetLayout_mainRender};
+    descriptorPool_main.AllocateSets(descSetAllocateTransfer,
                                      descriptorSetLayouts);
-  descSet_cursor = descSetAllocateTransfer[0];
+    descSet_main = descSetAllocateTransfer[0];
+  }
+  {
+    std::vector<VkDescriptorSet> descSetAllocateTransfer = {descSet_cursor};
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
+        descSetLayout_compute};
+    descriptorPool_cursor.AllocateSets(descSetAllocateTransfer,
+                                       descriptorSetLayouts);
+    descSet_cursor = descSetAllocateTransfer[0];
+  }
+  {
+    std::vector<VkDescriptorSet> descSetAllocateTransfer = {descSet_skybox};
+    std::vector<VkDescriptorSetLayout> descriptorSetLayouts = {
+        descSetLayout_skybox};
+    descriptorPool_skybox.AllocateSets(descSetAllocateTransfer,
+                                       descriptorSetLayouts);
+    descSet_skybox = descSetAllocateTransfer[0];
+  }
 
   vulkanWrapper::sampler sampler;
   CreateSampler(sampler);
@@ -1046,11 +1165,37 @@ void window::run() {
                                   VK_FORMAT_R8G8B8A8_UNORM,
                                   VK_FORMAT_R8G8B8A8_UNORM, false,
                                   VK_FILTER_NEAREST);
+
+  // 0 = +X, 1 = -X, 2 = +Y, 3 = -Y, 4 = +Z, 5 = -Z
+  vulkanWrapper::dynamicTexture2d skybox(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/"
+      "vulkanCraft/texture/skybox.png",
+      VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, false,
+      VK_FILTER_LINEAR);
   vulkanWrapper::dynamicTexture2d dynamicTexture(
       "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
       "diamond_block.png",
       VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, true,
       VK_FILTER_NEAREST);
+
+  for (int i = 0; i < 6; i++) {
+    VkDescriptorImageInfo skyboxImageInfo = {
+        .sampler = sampler,
+        .imageView = skybox.ImageViews()[i],
+        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    };
+    std::vector<VkDescriptorImageInfo> skyboxImageInfos = {skyboxImageInfo};
+    descSet_skybox.Write(skyboxImageInfos,
+                         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, i + 1);
+  }
+  std::vector<VkDescriptorBufferInfo> skyboxUBOInfos = {
+      {
+          .buffer = ubo_mvp,
+          .offset = 0,
+          .range = sizeof(MVP),
+      },
+  };
+  descSet_skybox.Write(skyboxUBOInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
 
   VkDescriptorBufferInfo storageBufferInfo_instance = {
       .buffer = instanceBuffer,
@@ -1062,11 +1207,7 @@ void window::run() {
       .offset = 0,
       .range = sizeof(MVP),
   };
-  VkDescriptorImageInfo cursorImageInfo = {
-      .sampler = sampler,
-      .imageView = cursor.ImageView(),
-      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-  };
+
   std::vector<VkDescriptorBufferInfo> uboBufferInfos = {uniformBufferInfo_MVP};
   std::vector<VkDescriptorBufferInfo> storageBufferInfos = {
       storageBufferInfo_instance};
@@ -1085,6 +1226,8 @@ void window::run() {
   vulkanWrapper::commandBuffer cubeCommandBuffer;
   vulkanWrapper::commandBuffer outlineCommandBuffer;
   vulkanWrapper::commandBuffer postProcessComputeBuffer;
+  vulkanWrapper::commandBuffer skyboxCommandBuffer;
+
   std::vector<VkCommandBuffer> commandBufferTransports_primary = {
       primaryCommandBuffer,
       postProcessComputeBuffer,
@@ -1092,6 +1235,7 @@ void window::run() {
   std::vector<VkCommandBuffer> commandBufferTransports_secondary = {
       cubeCommandBuffer,
       outlineCommandBuffer,
+      skyboxCommandBuffer,
   };
 
   vulkanWrapper::commandPool commandPool(
@@ -1106,19 +1250,18 @@ void window::run() {
 
   cubeCommandBuffer = commandBufferTransports_secondary[0];
   outlineCommandBuffer = commandBufferTransports_secondary[1];
+  skyboxCommandBuffer = commandBufferTransports_secondary[2];
 
   auto color = color::floatRGBA(101, 101, 101, 255);
-  VkClearValue clearColor = {.color = {std::get<0>(color), std::get<1>(color),
-                                       std::get<2>(color),
-                                       std::get<3>(color)}}; // 灰色
+  VkClearValue clearColor = {
+      .color = {{std::get<0>(color), std::get<1>(color), std::get<2>(color),
+                 std::get<3>(color)}}}; // 灰色
   VkClearValue depthClear = {.depthStencil = {1.f, 0}};
   std::vector<VkClearValue> clearValues = {clearColor, depthClear};
 
   loading = false;
   BootScreenThread.join();
 
-  MVP mvp;
-  mvp.model = glm::mat4(1.0f);
   fence.Reset();
 
   uint32_t textureSelection = 0;
@@ -1137,15 +1280,22 @@ void window::run() {
     uint32_t i = graphic::Singleton().CurrentImageIndex();
 
     // calculate data
-    mvp.view = camera::Singleton().getViewMatrix();
-    mvp.projection = camera::Singleton().getProjectionMatrix(
-        currentSize.width, currentSize.height);
+    MVP mvp;
+    {
+      glm::mat4 model = glm::mat4(1.f);
+      model = glm::translate(model, glm::vec3(camera::Singleton().position));
+      model = glm::scale(model, glm::vec3(50.f));
+      mvp.model = model;
+      mvp.view = camera::Singleton().getViewMatrix();
+      mvp.projection = camera::Singleton().getProjectionMatrix(
+          currentSize.width, currentSize.height);
+    }
 
     aimingEntity = rayIntersection(camera::Singleton().position,
                                    camera::Singleton().front, 5.0f, &facing);
 
     // TransferData
-    cubeVerticesBuffer.TransferData(vertices, sizeof vertices);
+    cubeVerticesBuffer.TransferData(cubeVertices, sizeof cubeVertices);
     ubo_mvp.TransferData(&mvp, sizeof(MVP));
 
     VkDescriptorImageInfo textureImageInfo = {
@@ -1192,7 +1342,7 @@ void window::run() {
       outlineCommandBuffer.Begin(
           VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
           inheritanceInfo_subpass0);
-      if (aimingEntity != nullptr) { // outline
+      if (aimingEntity != nullptr) {
         struct pushConstant_outline push = {
             .aimingBlockModel = glm::translate(
                 glm::mat4(1.f), glm::vec3(aimingEntity->position)),
@@ -1234,27 +1384,30 @@ void window::run() {
         cubeCommandBuffer.End();
       }
 
-      // { // cursor
-      //   struct pushConstant_cursor push = {
-      //       .imageExtent =
-      //       graphic::Singleton().SwapchainCreateInfo().imageExtent,
-      //       .maskExtent = cursor.Extent(),
-      //   };
-      //   postProcessComputeBuffer.Begin(
-      //       VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
-      //       inheritanceInfo_subpass1);
-      //   vkCmdBindPipeline(postProcessComputeBuffer,
-      //                     VK_PIPELINE_BIND_POINT_COMPUTE, cursorPipeline);
-      //   vkCmdBindDescriptorSets(
-      //       postProcessComputeBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-      //       cursorPipelineLayout, 0, 1, descSet_cursor.Address(), 0,
-      //       nullptr);
-      //   vkCmdPushConstants(postProcessComputeBuffer, cursorPipelineLayout,
-      //                      VK_SHADER_STAGE_COMPUTE_BIT, 0,
-      //                      sizeof(pushConstant_cursor), &push);
-      //   vkCmdDispatch(postProcessComputeBuffer, 1, 1, 1);
-      //   postProcessComputeBuffer.End();
-      // }
+      { // skybox
+        skyboxCommandBuffer.Begin(
+            VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
+            inheritanceInfo_subpass0);
+        vkCmdBindPipeline(skyboxCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          skyboxPipeline);
+        vkCmdBindVertexBuffers(skyboxCommandBuffer, 0, 1,
+                               cubeVerticesBuffer.Address(), &offset);
+        vkCmdBindIndexBuffer(skyboxCommandBuffer, cubeVertexIndexBuffer, 0,
+                             VK_INDEX_TYPE_UINT16);
+        vkCmdBindDescriptorSets(
+            skyboxCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+            skyboxPipelineLayout, 0, 1, descSet_skybox.Address(), 0, nullptr);
+        for (uint32_t i = 0; i < 6; i++) {
+          struct pushConstant_skybox push = {
+              .facing = i,
+          };
+          vkCmdPushConstants(skyboxCommandBuffer, skyboxPipelineLayout,
+                             VK_SHADER_STAGE_FRAGMENT_BIT, 0,
+                             sizeof(pushConstant_skybox), &push);
+          vkCmdDrawIndexed(skyboxCommandBuffer, 6, 1, i * 6, 0, 0);
+        }
+        skyboxCommandBuffer.End();
+      }
 
       { // primary
         primaryCommandBuffer.Begin();
@@ -1265,8 +1418,10 @@ void window::run() {
         std::vector<VkCommandBuffer> subCommandBuffers = {
             cubeCommandBuffer,
             outlineCommandBuffer,
+            skyboxCommandBuffer,
         };
-        vkCmdExecuteCommands(primaryCommandBuffer, 2, subCommandBuffers.data());
+        vkCmdExecuteCommands(primaryCommandBuffer, subCommandBuffers.size(),
+                             subCommandBuffers.data());
 
         // renderPass.CmdNext(primaryCommandBuffer,
         //                    VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
