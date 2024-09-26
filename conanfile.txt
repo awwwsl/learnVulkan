@@ -10,5 +10,5 @@ CMakeToolchain
 
 [options]
 glfw/*:shared=True
-glfw/*:wayland=True
-
+glfw/*:with_wayland=True
+glfw/*:with_x11=True
