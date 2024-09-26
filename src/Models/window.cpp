@@ -1,10 +1,3 @@
-#include "Vulkan/descriptorPool.hpp"
-#include "Vulkan/descriptorSet.hpp"
-#include "Vulkan/dynamicTexture.hpp"
-#include "Vulkan/pipeline.hpp"
-#include "Vulkan/pipelineLayout.hpp"
-#include <glm/ext/matrix_transform.hpp>
-#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #define LIMIT_FRAME_RATE true
@@ -20,6 +13,7 @@
 #include "camera.hpp"
 #include "graphic.hpp"
 #include "graphicPlus.hpp"
+#include "instance.hpp"
 #include "rpwfUtils.hpp"
 #include "window.hpp"
 #include "world.hpp"
@@ -73,6 +67,8 @@ struct pushConstant_skybox {
 
 int32_t facing = int32_t(Face::UNDEFINED);
 block *aimingEntity = nullptr;
+
+uint64_t holdingItem = 0;
 
 window::window() {}
 
@@ -685,6 +681,33 @@ void window::run() {
             camera::Singleton().verticalUpward(
                 -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
           }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_1) == GLFW_PRESS) {
+            holdingItem = 0;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_2) == GLFW_PRESS) {
+            holdingItem = 1;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_3) == GLFW_PRESS) {
+            holdingItem = 2;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_4) == GLFW_PRESS) {
+            holdingItem = 3;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_5) == GLFW_PRESS) {
+            holdingItem = 4;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_6) == GLFW_PRESS) {
+            holdingItem = 5;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_7) == GLFW_PRESS) {
+            holdingItem = 6;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_8) == GLFW_PRESS) {
+            holdingItem = 7;
+          }
+          if (glfwGetKey(glfwWindow, GLFW_KEY_9) == GLFW_PRESS) {
+            holdingItem = 8;
+          }
           { // fov switch
             static bool pressed = false;
             static float fov = camera::Singleton().fov;
@@ -828,11 +851,12 @@ void window::run() {
               return;
               break;
             }
-            block entity(position);
+            block entity(position, holdingItem);
             self->worldInstance.setEntity(position, entity);
 #ifndef NDEBUG
-            printf("[ window ] DEBUG: Placing block: position(%d, %d, %d)\n",
-                   position.x, position.y, position.z);
+            printf("[ window ] DEBUG: Placing block: position(%d, %d, %d) "
+                   "index(%lu)\n",
+                   position.x, position.y, position.z, holdingItem);
 #endif
           }
           if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
@@ -904,17 +928,16 @@ void window::run() {
 
   };
 
-  worldInstance.initializeWorld();
-  std::vector<glm::mat4> models = worldInstance.getModelMatrics();
+  worldInstance.initializeWorld(0);
 
   uint16_t indices[] = {
       // CW order
-      0,  1,  2,  2,  3,  0,  // Front face
-      4,  5,  6,  6,  7,  4,  // Back face
-      8,  9,  10, 10, 11, 8,  // Left face
-      12, 13, 14, 14, 15, 12, // Right face
-      16, 17, 18, 18, 19, 16, // Top face
-      20, 21, 22, 22, 23, 20, // Bottom face
+      0,  1,  2,  2,  3,  0,  // Right
+      4,  5,  6,  6,  7,  4,  // Left
+      8,  9,  10, 10, 11, 8,  // Top
+      12, 13, 14, 14, 15, 12, // Bottom
+      16, 17, 18, 18, 19, 16, // Front
+      20, 21, 22, 22, 23, 20, // Back
   };
 
   uint16_t edges[] = {// Front face
@@ -933,11 +956,10 @@ void window::run() {
   vulkanWrapper::vertexBuffer cubeVerticesBuffer(sizeof cubeVertices);
   cubeVerticesBuffer.TransferData(cubeVertices, sizeof cubeVertices);
 
-  vulkanWrapper::storageBuffer instanceBuffer(sizeof(glm::mat4) *
-                                              models.size() * 8);
+  vulkanWrapper::storageBuffer instanceBuffer(
+      sizeof(instance) * worldInstance.entities.size() * 8);
   // vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) *
   // models.size());
-  instanceBuffer.TransferData(models.data(), sizeof(glm::mat4) * models.size());
 
   vulkanWrapper::indexBuffer cubeVertexIndexBuffer(sizeof indices);
   cubeVertexIndexBuffer.TransferData(indices, sizeof indices);
@@ -945,7 +967,7 @@ void window::run() {
   vulkanWrapper::indexBuffer cubeEdgeIndexBuffer(sizeof edges);
   cubeEdgeIndexBuffer.TransferData(edges, sizeof edges);
 
-  vulkanWrapper::uniformBuffer ubo_mvp(sizeof(glm::mat4) * 3);
+  vulkanWrapper::uniformBuffer ubo_mvp(sizeof(MVP));
 
   vulkanWrapper::pipelineLayout cubePipelineLayout;
   vulkanWrapper::pipelineLayout outlinePipelineLayout;
@@ -967,6 +989,28 @@ void window::run() {
   const std::vector<vulkanWrapper::framebuffer> &framebuffers =
       rpwf.framebuffers;
 
+  textureManager::Singleton().registerDynamicTexture2d(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "diamond_block.png");
+  textureManager::Singleton().registerDynamicTexture2d(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "gold_block.png");
+  textureManager::Singleton().registerDynamicTexture2d(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "emerald_block.png");
+  textureManager::Singleton().registerDynamicTexture2d(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "redstone_block.png");
+  textureManager::Singleton().registerTexture2d(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "lapis_block.png");
+  textureManager::Singleton().registerTexture2d(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "oak_planks.png");
+  textureManager::Singleton().registerTexture2d(
+      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "warped_planks.png");
+
   {   // alloc descset
     { // main render
       std::vector<VkDescriptorSetLayoutBinding> bindings;
@@ -987,7 +1031,9 @@ void window::run() {
       VkDescriptorSetLayoutBinding cubeTextureDescriptorSetLayoutBinding = {
           .binding = 1,
           .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-          .descriptorCount = 1,
+          .descriptorCount =
+              uint32_t(textureManager::Singleton()
+                           .Index()), //  desc Count won't go above 2.1G right?
           .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
       };
 
@@ -1026,7 +1072,7 @@ void window::run() {
 
     { // skybox
       std::vector<VkDescriptorSetLayoutBinding> skyboxImageDescSetLayoutBinding(
-          7);
+          2);
       skyboxImageDescSetLayoutBinding[0] = {
           .binding = 0, // 描述符被绑定到0号binding
           .descriptorType =
@@ -1035,14 +1081,12 @@ void window::run() {
           .stageFlags =
               VK_SHADER_STAGE_VERTEX_BIT // 在顶点着色器阶段读取uniform缓冲区
       };
-      for (uint32_t i = 1; i < 7; i++) {
-        skyboxImageDescSetLayoutBinding[i] = {
-            .binding = i,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-        };
-      }
+      skyboxImageDescSetLayoutBinding[1] = {
+          .binding = 1,
+          .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+          .descriptorCount = 6, // skybox texture count
+          .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
+      };
 
       const uint32_t bindingCount = skyboxImageDescSetLayoutBinding.size();
       VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {
@@ -1103,7 +1147,8 @@ void window::run() {
 
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes_main = {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
-      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2},
+      {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+       uint32_t(textureManager::Singleton().Index())}, // maybe wont overflow
       {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1},
 
   };
@@ -1120,7 +1165,7 @@ void window::run() {
   vulkanWrapper::descriptorPool descriptorPool_cursor(
       1, descriptorPoolSizes_cursor);
   vulkanWrapper::descriptorPool descriptorPool_skybox(
-      6, descriptorPoolSizes_skybox);
+      1, descriptorPoolSizes_skybox);
 
   vulkanWrapper::descriptorSet descSet_main;
   vulkanWrapper::descriptorSet descSet_cursor;
@@ -1172,22 +1217,18 @@ void window::run() {
       "vulkanCraft/texture/skybox.png",
       VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, false,
       VK_FILTER_LINEAR);
-  vulkanWrapper::dynamicTexture2d dynamicTexture(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
-      "diamond_block.png",
-      VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, true,
-      VK_FILTER_NEAREST);
 
+  std::vector<VkDescriptorImageInfo> skyboxImageInfos(6);
   for (int i = 0; i < 6; i++) {
     VkDescriptorImageInfo skyboxImageInfo = {
         .sampler = sampler,
         .imageView = skybox.ImageViews()[i],
         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
-    std::vector<VkDescriptorImageInfo> skyboxImageInfos = {skyboxImageInfo};
-    descSet_skybox.Write(skyboxImageInfos,
-                         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, i + 1);
+    skyboxImageInfos[i] = skyboxImageInfo;
   }
+  descSet_skybox.Write(skyboxImageInfos,
+                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
   std::vector<VkDescriptorBufferInfo> skyboxUBOInfos = {
       {
           .buffer = ubo_mvp,
@@ -1213,6 +1254,15 @@ void window::run() {
       storageBufferInfo_instance};
   descSet_main.Write(uboBufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
   descSet_main.Write(storageBufferInfos, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2);
+
+  VkDescriptorImageInfo cursorImageInfo = {
+      .sampler = sampler,
+      .imageView = cursor.ImageView(),
+      .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+  };
+  std::vector<VkDescriptorImageInfo> cursorImageInfos = {cursorImageInfo};
+  descSet_cursor.Write(cursorImageInfos,
+                       VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
   // descSet_main.Write(cursorImageInfos,
   //                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3);
 
@@ -1270,14 +1320,17 @@ void window::run() {
       glfwWaitEvents();
     }
 
-    std::vector<glm::mat4> models = worldInstance.getModelMatrics();
-    instanceBuffer.TransferData(models.data(),
-                                sizeof(glm::mat4) * models.size());
+    std::vector<instance> instances = worldInstance.getInstances();
+    instanceBuffer.TransferData(instances.data(),
+                                sizeof(instance) * instances.size());
 
     textureSelection++;
-    textureSelection %= 120; // 0 - 7
+    textureSelection %= 15;
+    if (textureSelection == 0) {
+      textureManager::Singleton().UpdateDynamicTextureView();
+    }
     graphic::Singleton().SwapImage(semaphore_imageAvailable);
-    uint32_t i = graphic::Singleton().CurrentImageIndex();
+    uint32_t currentFramebufferIndex = graphic::Singleton().CurrentImageIndex();
 
     // calculate data
     MVP mvp;
@@ -1298,36 +1351,42 @@ void window::run() {
     cubeVerticesBuffer.TransferData(cubeVertices, sizeof cubeVertices);
     ubo_mvp.TransferData(&mvp, sizeof(MVP));
 
-    VkDescriptorImageInfo textureImageInfo = {
-        .sampler = sampler,
-        .imageView = dynamicTexture.ImageViews()[textureSelection / 15],
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    std::vector<VkDescriptorImageInfo> imageInfos = {textureImageInfo};
+    std::vector<VkDescriptorImageInfo> imageInfos(
+        textureManager::Singleton().Index());
+    for (uint64_t i = 0; i < textureManager::Singleton().Index(); i++) {
+      VkDescriptorImageInfo textureImageInfo = {
+          .sampler = sampler,
+          .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+      };
+      if (textureManager::Singleton().staticTextures2d.find(i) !=
+          textureManager::Singleton().staticTextures2d.end()) {
+        textureImageInfo.imageView =
+            textureManager::Singleton().staticTextures2d.at(i)->ImageView();
+      } else {
+        textureImageInfo.imageView =
+            textureManager::Singleton().dynamicTextures2d.at(i)->CurrentView();
+      }
+      imageInfos[i] = textureImageInfo;
+    }
     descSet_main.Write(imageInfos, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                        1);
+
     VkDescriptorImageInfo swapchainImageInfo = {
         .sampler = nullptr,
-        .imageView = graphic::Singleton().SwapchainImageView(i),
+        .imageView =
+            graphic::Singleton().SwapchainImageView(currentFramebufferIndex),
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
     };
     std::vector<VkDescriptorImageInfo> swapchainImageInfos = {
         swapchainImageInfo};
-    VkDescriptorImageInfo cursorImageInfo = {
-        .sampler = sampler,
-        .imageView = cursor.ImageView(),
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-    std::vector<VkDescriptorImageInfo> cursorImageInfos = {cursorImageInfo};
     descSet_cursor.Write(swapchainImageInfos, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                          0);
-    descSet_cursor.Write(cursorImageInfos,
-                         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1);
 
     VkCommandBufferInheritanceInfo inheritanceInfo_subpass0 = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
         .renderPass = renderPass,
         .subpass = 0,
-        .framebuffer = framebuffers[i],
+        .framebuffer = framebuffers[currentFramebufferIndex],
     };
     // VkCommandBufferInheritanceInfo inheritanceInfo_subpass1 = {
     //     .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO,
@@ -1380,7 +1439,7 @@ void window::run() {
         vkCmdBindDescriptorSets(
             cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
             cubePipelineLayout, 0, 1, descSet_main.Address(), 0, nullptr);
-        vkCmdDrawIndexed(cubeCommandBuffer, 36, models.size(), 0, 0, 0);
+        vkCmdDrawIndexed(cubeCommandBuffer, 36, instances.size(), 0, 0, 0);
         cubeCommandBuffer.End();
       }
 
@@ -1398,12 +1457,11 @@ void window::run() {
             skyboxCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
             skyboxPipelineLayout, 0, 1, descSet_skybox.Address(), 0, nullptr);
         for (uint32_t i = 0; i < 6; i++) {
-          struct pushConstant_skybox push = {
-              .facing = i,
-          };
+          struct pushConstant_skybox push = {.facing = i};
           vkCmdPushConstants(skyboxCommandBuffer, skyboxPipelineLayout,
                              VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                              sizeof(pushConstant_skybox), &push);
+
           vkCmdDrawIndexed(skyboxCommandBuffer, 6, 1, i * 6, 0, 0);
         }
         skyboxCommandBuffer.End();
@@ -1411,9 +1469,10 @@ void window::run() {
 
       { // primary
         primaryCommandBuffer.Begin();
-        renderPass.CmdBegin(primaryCommandBuffer, framebuffers[i],
-                            {{}, {framebuffers[i].Size()}}, clearValues,
-                            VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+        renderPass.CmdBegin(
+            primaryCommandBuffer, framebuffers[currentFramebufferIndex],
+            {{}, {framebuffers[currentFramebufferIndex].Size()}}, clearValues,
+            VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
         std::vector<VkCommandBuffer> subCommandBuffers = {
             cubeCommandBuffer,
@@ -1422,12 +1481,6 @@ void window::run() {
         };
         vkCmdExecuteCommands(primaryCommandBuffer, subCommandBuffers.size(),
                              subCommandBuffers.data());
-
-        // renderPass.CmdNext(primaryCommandBuffer,
-        //                    VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
-        // VkCommandBuffer cursorCommandBufferVK = postProcessComputeBuffer;
-        // vkCmdExecuteCommands(primaryCommandBuffer, 1,
-        // &cursorCommandBufferVK);
 
         renderPass.CmdEnd(primaryCommandBuffer);
         primaryCommandBuffer.End();
@@ -1463,7 +1516,8 @@ void window::run() {
           .srcQueueFamilyIndex =
               VK_QUEUE_FAMILY_IGNORED, // 如果是同一个队列，可以设置为忽略
           .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-          .image = graphic::Singleton().SwapchainImage(i), // 目标图像
+          .image = graphic::Singleton().SwapchainImage(
+              currentFramebufferIndex), // 目标图像
           .subresourceRange =
               {
                   .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1538,6 +1592,7 @@ void window::updateLogic() {
 
 void window::TerminateWindow() {
   graphic::Singleton().WaitIdle();
+  textureManager::Singleton().DestroyAllTexture();
   vulkanWrapper::stagingBuffer::ClearBuffers();
   graphic::Singleton().ClearDestroySwapchainCallbacks();
   graphic::Singleton().ClearDestroyDeviceCallbacks();

@@ -41,6 +41,9 @@ public:
   void Write(std::vector<vulkanWrapper::bufferView> descriptorInfos,
              VkDescriptorType descriptorType, uint32_t dstBinding = 0,
              uint32_t dstArrayElement = 0) const;
+  void
+  UpdateWithTemplate(const VkDescriptorUpdateTemplate descriptorUpdateTemplate,
+                     const void *pData) const;
   // Static Function
   static void Update(std::vector<VkWriteDescriptorSet> writes,
                      std::vector<VkCopyDescriptorSet> copies = {});

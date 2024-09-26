@@ -8,12 +8,14 @@ class dynamicTexture2d : public dynamicTexture {
 protected:
   VkExtent2D extent = {};
   //--------------------
+  dynamicTexture2d(const dynamicTexture2d &) = delete;
   void Create_Internal(VkFormat format_initial, VkFormat format_final,
                        bool generateMipmap, uint32_t layerCount,
                        VkFilter blitFilter);
 
 public:
   dynamicTexture2d();
+  ~dynamicTexture2d();
   inline dynamicTexture2d(const char *filepath, VkFormat format_initial,
                           VkFormat format_final, bool generateMipmap = true,
                           VkFilter blitFilter = VK_FILTER_LINEAR) {

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "block.hpp"
+#include "instance.hpp"
+#include "textureManager.hpp"
 
 #include <cstdint>
 #include <unordered_map>
@@ -37,14 +39,14 @@ public:
   }
   size_t removeEntity(glm::ivec3 position);
 
-  inline void initializeWorld() {
+  inline void initializeWorld(uint32_t textureIndex) {
     int64_t x = initializeWorldSize.x, y = initializeWorldSize.y,
             z = initializeWorldSize.z;
     for (int64_t ix = 0; ix < x; ix++) {
       for (int64_t iy = 0; iy < y; iy++) {
         for (int64_t iz = 0; iz < z; iz++) {
           entities.emplace(glm::ivec3(ix, iy, iz),
-                           block(glm::ivec3(ix, iy, iz)));
+                           block(glm::ivec3(ix, iy, iz), textureIndex));
         }
       }
     }
@@ -56,5 +58,17 @@ public:
       models.push_back(entity.second.getModelMatrix());
     }
     return models;
+  }
+
+  inline std::vector<instance> getInstances() {
+    std::vector<instance> instances;
+    instances.reserve(entities.size());
+    for (auto &entity : entities) {
+      struct instance inst;
+      inst.model = entity.second.getModelMatrix();
+      inst.textureIndex = entity.second.textureIndex;
+      instances.push_back(inst);
+    }
+    return instances;
   }
 };

@@ -6,6 +6,8 @@
 #include "stagingBuffer.hpp"
 #include <vulkan/vulkan_core.h>
 
+vulkanWrapper::dynamicTexture2d::dynamicTexture2d() = default;
+vulkanWrapper::dynamicTexture2d::~dynamicTexture2d() = default;
 // 直接从硬盘读取文件
 void vulkanWrapper::dynamicTexture2d::Create(const char *filepath,
                                              VkFormat format_initial,

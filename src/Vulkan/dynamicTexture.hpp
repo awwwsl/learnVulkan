@@ -14,9 +14,11 @@ class dynamicTexture {
 protected:
   std::vector<imageView> views;
   imageMemory memory;
+  uint32_t currentView = 0;
   //--------------------
   dynamicTexture();
   ~dynamicTexture();
+  dynamicTexture(const dynamicTexture &) = delete;
   void CreateImageMemory(VkImageType imageType, VkFormat format,
                          VkExtent3D extent, uint32_t mipLevelCount,
                          uint32_t arrayLayerCount,
@@ -33,6 +35,13 @@ public:
       viewsTransport[i] = views[i];
     }
     return viewsTransport;
+  }
+  inline VkImageView ImageView(uint32_t index) const { return views[index]; }
+  inline VkImageView CurrentView() const { return views[currentView]; }
+  inline uint32_t UpdateView() {
+    currentView++;
+    currentView %= views.size();
+    return currentView;
   }
   inline int viewCount() { return views.size(); }
   inline VkImage Image() const { return memory.Image(); }

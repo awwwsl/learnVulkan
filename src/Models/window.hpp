@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 
+#include "instance.hpp"
 #include "world.hpp"
 
 #include <GLFW/glfw3.h>

@@ -10,15 +10,19 @@ private:
 public:
   glm::ivec3 position;
   glm::ivec3 scale;
+
+  uint32_t textureIndex = 0;
   // 0 = +X, 1 = -X, 2 = +Y, 3 = -Y, 4 = +Z, 5 = -Z
 
   void setFacing(uint8_t facing) { this->facing = facing % 6; }
 
-  inline block(glm::ivec3 position, glm::ivec3 scale, uint8_t facing)
-      : facing(facing), position(position), scale(scale) {}
+  inline block(glm::ivec3 position, glm::ivec3 scale, uint8_t facing,
+               uint32_t textureIndex)
+      : facing(facing), position(position), scale(scale),
+        textureIndex(textureIndex) {}
 
-  inline block(glm::vec3 position)
-      : block(position, defaultScale, defaultFacing) {}
+  inline block(glm::vec3 position, uint32_t textureIndex)
+      : block(position, defaultScale, defaultFacing, textureIndex) {}
 
   static const constexpr glm::ivec3 defaultScale = {1, 1, 1};
   static const constexpr uint8_t defaultFacing = 0;

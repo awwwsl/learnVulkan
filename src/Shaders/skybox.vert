@@ -14,6 +14,6 @@ layout(binding = 0) uniform MVP {
 
 void main() {
     gl_Position = mvp.projection * mvp.view * mvp.model * vec4(i_Position, 1.0);
-    o_TexCoord = i_TexCoord;
+    o_TexCoord  = i_TexCoord;
 }
 

@@ -73,3 +73,10 @@ void vulkanWrapper::descriptorSet::Update(
   // HACK: copy instead of convert
   Update(std::vector<VkWriteDescriptorSet>{write}, copies);
 }
+
+void vulkanWrapper::descriptorSet::UpdateWithTemplate(
+    const VkDescriptorUpdateTemplate descriptorUpdateTemplate,
+    const void *pData) const {
+  vkUpdateDescriptorSetWithTemplate(graphic::Singleton().Device(), handle,
+                                    descriptorUpdateTemplate, pData);
+}

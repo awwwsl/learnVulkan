@@ -50,6 +50,7 @@ set(SOURCES
     src/Models/graphicPlus.cpp
     src/Models/graphicPlusImpl.cpp
     src/Models/rpwfUtils.cpp
+    src/Models/textureManager.cpp
     src/Models/window.cpp
     src/Models/world.cpp
 )
