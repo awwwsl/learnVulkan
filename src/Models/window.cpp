@@ -2,7 +2,7 @@
 
 #define LIMIT_FRAME_RATE true
 
-#define BOOT_SCREEN false
+#define BOOT_SCREEN true
 
 #include "../Utils/VkResultThrowable.hpp"
 #include "../Utils/color.hpp"
@@ -37,6 +37,7 @@ enum class Face {
   RIGHT = 4,
   TOP = 5,
   BOTTOM = 6,
+  EMERGED = INT32_MAX,
 };
 
 struct vertex {
@@ -183,7 +184,8 @@ block *window::rayIntersection(const glm::vec3 start, const glm::vec3 direction,
   glm::vec3 now = start;
   glm::ivec3 current(glm::round(now));
   if (auto *entity = worldInstance.getEntity(current)) {
-    return nullptr; // emerged by block
+    *facing = int(Face::EMERGED);
+    return entity;
   }
   while (glm::distance(now, start) < maxDistance) {
     now += direction * 0.01f;
@@ -817,63 +819,79 @@ void window::run() {
           }
         });
 
-    glfwSetMouseButtonCallback(
-        glfwWindow, [](GLFWwindow *window, int button, int action, int mods) {
-          class window *self = (class window *)glfwGetWindowUserPointer(window);
-          if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
-            if (!aimingEntity) {
+    glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow *window, int button,
+                                              int action, int mods) {
+      class window *self = (class window *)glfwGetWindowUserPointer(window);
+      if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+        if (facing == uint32_t(Face::EMERGED)) {
 #ifndef NDEBUG
-              printf("[ window ] DEBUG: Aiming air\n");
+          printf("[ window ] DEBUG: Emerged by block\n");
 #endif
-              return;
-            }
-            glm::ivec3 position = aimingEntity->position;
-            switch (Face(facing)) {
-            case Face::FRONT:
-              position += glm::ivec3(0, 0, 1);
-              break;
-            case Face::BACK:
-              position += glm::ivec3(0, 0, -1);
-              break;
-            case Face::LEFT:
-              position += glm::ivec3(-1, 0, 0);
-              break;
-            case Face::RIGHT:
-              position += glm::ivec3(1, 0, 0);
-              break;
-            case Face::TOP: // vulkan reverse y
-              position -= glm::ivec3(0, 1, 0);
-              break;
-            case Face::BOTTOM:
-              position -= glm::ivec3(0, -1, 0);
-              break;
-            default:
-              return;
-              break;
-            }
-            block entity(position, holdingItem);
-            self->worldInstance.setEntity(position, entity);
+          return;
+        }
+        if (!aimingEntity) {
 #ifndef NDEBUG
-            printf("[ window ] DEBUG: Placing block: position(%d, %d, %d) "
-                   "index(%lu)\n",
-                   position.x, position.y, position.z, holdingItem);
+          printf("[ window ] DEBUG: Aiming air\n");
 #endif
-          }
-          if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-            if (!aimingEntity) {
+          return;
+        }
+        glm::ivec3 position = aimingEntity->position;
+        switch (Face(facing)) {
+        case Face::FRONT:
+          position += glm::ivec3(0, 0, 1);
+          break;
+        case Face::BACK:
+          position += glm::ivec3(0, 0, -1);
+          break;
+        case Face::LEFT:
+          position += glm::ivec3(-1, 0, 0);
+          break;
+        case Face::RIGHT:
+          position += glm::ivec3(1, 0, 0);
+          break;
+        case Face::TOP: // vulkan reverse y
+          position -= glm::ivec3(0, 1, 0);
+          break;
+        case Face::BOTTOM:
+          position -= glm::ivec3(0, -1, 0);
+          break;
+        default:
 #ifndef NDEBUG
-              printf("[ window ] DEBUG: Aiming air\n");
+          printf("[ window ] DEBUG: Facing is UNDEFINED\n");
 #endif
-              return;
-            }
+          return;
+          break;
+        }
+        if (glm::ivec3(glm::round(camera::Singleton().position)) == position) {
 #ifndef NDEBUG
-            printf("[ window ] DEBUG: Removing block: position(%d, %d, %d)\n",
-                   aimingEntity->position.x, aimingEntity->position.y,
-                   aimingEntity->position.z);
+          printf("[ window ] DEBUG: Blocked by camera\n");
 #endif
-            self->worldInstance.removeEntity(aimingEntity->position);
-          }
-        });
+          return;
+        }
+        block entity(position, holdingItem);
+        self->worldInstance.setEntity(position, entity);
+#ifndef NDEBUG
+        printf("[ window ] DEBUG: Placing block: position(%d, %d, %d) "
+               "index(%lu)\n",
+               position.x, position.y, position.z, holdingItem);
+#endif
+        return;
+      }
+      if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        if (!aimingEntity) {
+#ifndef NDEBUG
+          printf("[ window ] DEBUG: Aiming air\n");
+#endif
+          return;
+        }
+#ifndef NDEBUG
+        printf("[ window ] DEBUG: Removing block: position(%d, %d, %d)\n",
+               aimingEntity->position.x, aimingEntity->position.y,
+               aimingEntity->position.z);
+#endif
+        self->worldInstance.removeEntity(aimingEntity->position);
+      }
+    });
 
     glfwSetScrollCallback(
         glfwWindow, [](GLFWwindow *window, double xoffset, double yoffset) {
