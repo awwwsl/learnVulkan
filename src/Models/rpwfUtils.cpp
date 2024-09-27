@@ -75,9 +75,8 @@ rpwfUtils::CreateRenderPassWithFramebuffers(
           .dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
           .srcAccessMask = 0,
           .dstAccessMask =
-              VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
-              VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, // Because of
-                                                    // VK_ATTACHMENT_LOAD_OP_CLEAR
+              VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, // Because of
+                                                            // VK_ATTACHMENT_LOAD_OP_CLEAR
           .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
       },
       // {
