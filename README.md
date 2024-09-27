@@ -17,6 +17,7 @@ cmake --build build
 ```bash
 glslc shader.vert -o shader.vert.spv
 glslc shader.frag -o shader.frag.spv
+glslc shader.comp -o shader.comp.spv
 ```
 
 Or use the script
@@ -28,6 +29,7 @@ Or use the script
 ## Run
 
 ```bash
+export XDG_SESSION_TYPE=x11 # Wayland support is not ready
 ./build/learnVulkan
 ```
 
