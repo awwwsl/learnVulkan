@@ -599,7 +599,8 @@ void CreateSampler(vulkanWrapper::sampler &sampler) {
 void window::run() {
   bool loading = true;
   bool *pLoading = &loading;
-  std::thread BootScreenThread(BootScreen, "/home/awwwsl/desktop.png",
+  std::thread BootScreenThread(BootScreen,
+                               "res/vulkanCraft/texture/bootScreen.png",
                                VK_FORMAT_R8G8B8A8_UNORM, pLoading);
 #ifndef NDEBUG
   auto id = BootScreenThread.get_id();
@@ -1008,26 +1009,23 @@ void window::run() {
       rpwf.framebuffers;
 
   textureManager::Singleton().registerDynamicTexture2d(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "res/vulkanCraft/texture/"
       "diamond_block.png");
   textureManager::Singleton().registerDynamicTexture2d(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "res/vulkanCraft/texture/"
       "gold_block.png");
   textureManager::Singleton().registerDynamicTexture2d(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "res/vulkanCraft/texture/"
       "emerald_block.png");
   textureManager::Singleton().registerDynamicTexture2d(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
+      "res/vulkanCraft/texture/"
       "redstone_block.png");
-  textureManager::Singleton().registerTexture2d(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
-      "lapis_block.png");
-  textureManager::Singleton().registerTexture2d(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
-      "oak_planks.png");
-  textureManager::Singleton().registerTexture2d(
-      "/home/awwwsl/code/learn/cpp/learnVulkan/res/vulkanCraft/texture/"
-      "warped_planks.png");
+  textureManager::Singleton().registerTexture2d("res/vulkanCraft/texture/"
+                                                "lapis_block.png");
+  textureManager::Singleton().registerTexture2d("res/vulkanCraft/texture/"
+                                                "oak_planks.png");
+  textureManager::Singleton().registerTexture2d("res/vulkanCraft/texture/"
+                                                "warped_planks.png");
 
   {   // alloc descset
     { // main render

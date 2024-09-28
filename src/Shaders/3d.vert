@@ -20,11 +20,11 @@ layout(binding = 0) uniform MVP {
 
 layout(set = 0, binding = 2, std430) buffer StorageBuffer {
     Instance instances[];
-};
+} storageBuffer[];
 
 void main() {
-    gl_Position = mvp.projection * mvp.view * instances[gl_InstanceIndex].model * vec4(i_Position, 1.0);
-    o_TextureIndex = instances[gl_InstanceIndex].textureIndex;
+    gl_Position = mvp.projection * mvp.view * storageBuffer[0].instances[gl_InstanceIndex].model * vec4(i_Position, 1.0);
+    o_TextureIndex = storageBuffer[0].instances[gl_InstanceIndex].textureIndex;
     o_TexCoord = i_TexCoord;
 }
 
