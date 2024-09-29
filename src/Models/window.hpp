@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 
+#include "chunk.hpp"
 #include "instance.hpp"
 #include "world.hpp"
 
@@ -23,7 +24,7 @@ class window {
   static inline std::vector<LogicUpdateCallbackInfo> logicUpdateCallbacks;
 
 private:
-  world worldInstance;
+  world *pWorldInstance;
 
   GLFWwindow *glfwWindow;
   GLFWmonitor *glfwMonitor;

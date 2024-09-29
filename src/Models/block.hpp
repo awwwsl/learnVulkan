@@ -8,8 +8,8 @@ private:
   uint8_t facing;
 
 public:
-  glm::ivec3 position;
-  glm::ivec3 scale;
+  glm::ivec3 position = {0, 0, 0};
+  glm::ivec3 scale = {1, 1, 1};
 
   uint32_t textureIndex = 0;
   // 0 = +X, 1 = -X, 2 = +Y, 3 = -Y, 4 = +Z, 5 = -Z

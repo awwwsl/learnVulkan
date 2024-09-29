@@ -40,5 +40,7 @@ export XDG_SESSION_TYPE=x11 # Wayland support is not ready
 3. ~add skybox~ done
 4. add lighting
 5. ~add multiple texture support~ done
-6. add chunk loading
+6. ~add chunk loading~ done
 7. add save & load
+8. occlusion culling
+9. text render

@@ -46,6 +46,7 @@ set(SOURCES
     src/Vulkan/texture.cpp
     src/Vulkan/texture2d.cpp
 
+    src/Models/chunk.cpp
     src/Models/graphic.cpp
     src/Models/graphicPlus.cpp
     src/Models/graphicPlusImpl.cpp

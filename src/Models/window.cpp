@@ -1,8 +1,10 @@
+#include <cstdint>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_VULKAN
 
 #define LIMIT_FRAME_RATE true
 
-#define BOOT_SCREEN true
+#define BOOT_SCREEN false
 
 #include "../Utils/VkResultThrowable.hpp"
 #include "../Utils/color.hpp"
@@ -11,12 +13,12 @@
 
 #include "block.hpp"
 #include "camera.hpp"
+#include "chunk.hpp"
 #include "graphic.hpp"
 #include "graphicPlus.hpp"
 #include "instance.hpp"
 #include "rpwfUtils.hpp"
 #include "window.hpp"
-#include "world.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -183,15 +185,17 @@ block *window::rayIntersection(const glm::vec3 start, const glm::vec3 direction,
                                const float maxDistance, int *facing) {
   glm::vec3 now = start;
   glm::ivec3 current(glm::round(now));
-  if (auto *entity = worldInstance.getEntity(current)) {
+  block *entity = pWorldInstance->getBlock(current);
+  if (entity != nullptr) {
     *facing = int(Face::EMERGED);
     return entity;
   }
   while (glm::distance(now, start) < maxDistance) {
     now += direction * 0.01f;
     glm::ivec3 current(glm::round(now));
-    if (auto *entity = worldInstance.getEntity(current)) {
-      if (facing) {
+    block *entity = pWorldInstance->getBlock(current);
+    if (entity != nullptr) {
+      if (facing != nullptr) {
         Face face;
         glm::vec3 diff = now - glm::vec3(current);
         if (glm::abs(diff.x) > glm::abs(diff.y) &&
@@ -869,8 +873,8 @@ void window::run() {
 #endif
           return;
         }
-        block entity(position, holdingItem);
-        self->worldInstance.setEntity(position, entity);
+        block *entity = new block(position, holdingItem);
+        self->pWorldInstance->setBlock(position, entity);
 #ifndef NDEBUG
         printf("[ window ] DEBUG: Placing block: position(%d, %d, %d) "
                "index(%lu)\n",
@@ -890,7 +894,7 @@ void window::run() {
                aimingEntity->position.x, aimingEntity->position.y,
                aimingEntity->position.z);
 #endif
-        self->worldInstance.removeEntity(aimingEntity->position);
+        self->pWorldInstance->removeBlock(aimingEntity->position);
       }
     });
 
@@ -947,7 +951,8 @@ void window::run() {
 
   };
 
-  worldInstance.initializeWorld(0);
+  pWorldInstance = new world();
+  pWorldInstance->initializeWorld();
 
   uint16_t indices[] = {
       // CW order
@@ -974,11 +979,6 @@ void window::run() {
 
   vulkanWrapper::vertexBuffer cubeVerticesBuffer(sizeof cubeVertices);
   cubeVerticesBuffer.TransferData(cubeVertices, sizeof cubeVertices);
-
-  vulkanWrapper::storageBuffer instanceBuffer(
-      sizeof(instance) * worldInstance.entities.size() * 8);
-  // vulkanWrapper::vertexBuffer instanceBuffer(sizeof(glm::mat4) *
-  // models.size());
 
   vulkanWrapper::indexBuffer cubeVertexIndexBuffer(sizeof indices);
   cubeVertexIndexBuffer.TransferData(indices, sizeof indices);
@@ -1041,7 +1041,7 @@ void window::run() {
       VkDescriptorSetLayoutBinding instanceBufferDescSetLayoutBinding = {
           .binding = 2,
           .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-          .descriptorCount = 1,
+          .descriptorCount = 4096,
           .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
       };
       VkDescriptorSetLayoutBinding cubeTextureDescriptorSetLayoutBinding = {
@@ -1165,7 +1165,7 @@ void window::run() {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
        uint32_t(textureManager::Singleton().Index())}, // maybe wont overflow
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4096},
 
   };
   std::vector<VkDescriptorPoolSize> descriptorPoolSizes_cursor = {
@@ -1254,22 +1254,19 @@ void window::run() {
   };
   descSet_skybox.Write(skyboxUBOInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
 
-  VkDescriptorBufferInfo storageBufferInfo_instance = {
-      .buffer = instanceBuffer,
-      .offset = 0,
-      .range = VK_WHOLE_SIZE,
-  };
+  std::vector<VkDescriptorBufferInfo> storageBufferInfos;
+  for (auto &chunk : pWorldInstance->chunks) {
+    storageBufferInfos.push_back(chunk.second->descriptorBufferInfo());
+  }
   VkDescriptorBufferInfo uniformBufferInfo_MVP = {
       .buffer = ubo_mvp,
       .offset = 0,
       .range = sizeof(MVP),
   };
+  descSet_main.Write(storageBufferInfos, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2);
 
   std::vector<VkDescriptorBufferInfo> uboBufferInfos = {uniformBufferInfo_MVP};
-  std::vector<VkDescriptorBufferInfo> storageBufferInfos = {
-      storageBufferInfo_instance};
   descSet_main.Write(uboBufferInfos, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0);
-  descSet_main.Write(storageBufferInfos, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2);
 
   VkDescriptorImageInfo cursorImageInfo = {
       .sampler = sampler,
@@ -1336,9 +1333,20 @@ void window::run() {
       glfwWaitEvents();
     }
 
-    std::vector<instance> instances = worldInstance.getInstances();
-    instanceBuffer.TransferData(instances.data(),
-                                sizeof(instance) * instances.size());
+    pWorldInstance->updateBlockInstanceBuffers();
+
+    // HACK: hack
+    std::vector<VkDescriptorBufferInfo> storageBufferInfos;
+    for (auto &chunk : pWorldInstance->chunks) {
+      storageBufferInfos.push_back(chunk.second->descriptorBufferInfo());
+    }
+    VkDescriptorBufferInfo uniformBufferInfo_MVP = {
+        .buffer = ubo_mvp,
+        .offset = 0,
+        .range = sizeof(MVP),
+    };
+    descSet_main.Write(storageBufferInfos, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                       2);
 
     textureSelection++;
     textureSelection %= 15;
@@ -1455,7 +1463,10 @@ void window::run() {
         vkCmdBindDescriptorSets(
             cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
             cubePipelineLayout, 0, 1, descSet_main.Address(), 0, nullptr);
-        vkCmdDrawIndexed(cubeCommandBuffer, 36, instances.size(), 0, 0, 0);
+        vkCmdDrawIndexed(cubeCommandBuffer, 36,
+                         chunk::chunkSize.x * chunk::chunkSize.y *
+                             chunk::chunkSize.z * pWorldInstance->chunkCount(),
+                         0, 0, 0);
         cubeCommandBuffer.End();
       }
 
@@ -1607,6 +1618,7 @@ void window::updateLogic() {
 }
 
 void window::TerminateWindow() {
+  pWorldInstance->~world();
   graphic::Singleton().WaitIdle();
   textureManager::Singleton().DestroyAllTexture();
   vulkanWrapper::stagingBuffer::ClearBuffers();
