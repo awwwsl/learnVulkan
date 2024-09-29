@@ -952,7 +952,6 @@ void window::run() {
   };
 
   pWorldInstance = new world();
-  pWorldInstance->initializeWorld();
 
   uint16_t indices[] = {
       // CW order
@@ -1008,24 +1007,13 @@ void window::run() {
   const std::vector<vulkanWrapper::framebuffer> &framebuffers =
       rpwf.framebuffers;
 
-  textureManager::Singleton().registerDynamicTexture2d(
-      "res/vulkanCraft/texture/"
-      "diamond_block.png");
-  textureManager::Singleton().registerDynamicTexture2d(
-      "res/vulkanCraft/texture/"
-      "gold_block.png");
-  textureManager::Singleton().registerDynamicTexture2d(
-      "res/vulkanCraft/texture/"
-      "emerald_block.png");
-  textureManager::Singleton().registerDynamicTexture2d(
-      "res/vulkanCraft/texture/"
-      "redstone_block.png");
-  textureManager::Singleton().registerTexture2d("res/vulkanCraft/texture/"
-                                                "lapis_block.png");
-  textureManager::Singleton().registerTexture2d("res/vulkanCraft/texture/"
-                                                "oak_planks.png");
-  textureManager::Singleton().registerTexture2d("res/vulkanCraft/texture/"
-                                                "warped_planks.png");
+  textureManager::Singleton().registerGameTexture("diamond_block");
+  textureManager::Singleton().registerGameTexture("gold_block");
+  textureManager::Singleton().registerGameTexture("emerald_block");
+  textureManager::Singleton().registerGameTexture("redstone_block");
+  textureManager::Singleton().registerGameTexture("lapis_block");
+  textureManager::Singleton().registerGameTexture("oak_planks");
+  textureManager::Singleton().registerGameTexture("warped_planks");
 
   {   // alloc descset
     { // main render
@@ -1335,7 +1323,7 @@ void window::run() {
 
     pWorldInstance->updateBlockInstanceBuffers();
 
-    // HACK: hack
+    // HACK: make this lazy
     std::vector<VkDescriptorBufferInfo> storageBufferInfos;
     for (auto &chunk : pWorldInstance->chunks) {
       storageBufferInfos.push_back(chunk.second->descriptorBufferInfo());

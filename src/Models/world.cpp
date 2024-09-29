@@ -1,6 +1,24 @@
 #include "world.hpp"
 
-world::world() = default;
+world::world() {
+  auto initializeWorld = [this]() {
+    int textureIndex = 0;
+    for (int x = -3; x < 5; x++) {
+      for (int y = -2; y < 2; y++) {
+        for (int z = -3; z < 5; z++) {
+          glm::ivec3 chunkPosition = glm::ivec3(x, y, z);
+          chunks.emplace(chunkPosition, std::make_unique<chunk>(chunkPosition));
+          chunks[chunkPosition]->initializeChunk(textureIndex);
+
+          textureIndex++;
+          textureIndex %= 7;
+        }
+      }
+    }
+  };
+
+  initializeWorld();
+}
 world::~world() = default;
 
 //  0  -  15 -> chunk 0

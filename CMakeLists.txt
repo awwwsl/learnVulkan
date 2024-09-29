@@ -32,6 +32,7 @@ set(SOURCES
     src/Vulkan/fence.cpp
     src/Vulkan/formatInfo.cpp
     src/Vulkan/framebuffer.cpp
+    src/Vulkan/gameTexture.cpp
     src/Vulkan/graphicsPipelineCreateInfoPack.cpp
     src/Vulkan/image.cpp
     src/Vulkan/imageMemory.cpp
