@@ -49,3 +49,4 @@ CMakeFiles/
 build/
 local/
 save/
+*.sh

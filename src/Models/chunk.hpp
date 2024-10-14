@@ -2,10 +2,12 @@
 
 #include "Vulkan/storageBuffer.hpp"
 #include "block.hpp"
+#include "camera.hpp"
 #include "instance.hpp"
 #include "textureManager.hpp"
 
 #include <cstdint>
+#include <sys/types.h>
 #include <unordered_map>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -19,8 +21,7 @@ struct glm_ivec3_hash {
 
 class chunk {
   static const constexpr glm::ivec3 initializeChunkSize = {12, 2, 12};
-  vulkanWrapper::storageBuffer instanceBuffer = vulkanWrapper::storageBuffer(
-      sizeof(instance) * chunkSize.x * chunkSize.y * chunkSize.z);
+  vulkanWrapper::storageBuffer *instanceBuffer;
 
   bool altered = true;
 
@@ -30,6 +31,8 @@ class chunk {
 public:
   static const constexpr glm::ivec3 chunkSize = {16, 16, 16};
   const glm::ivec3 chunkPosition;
+
+  uint32_t instanceBufferIndex;
 
   chunk(glm::ivec3 chunkPosition);
   ~chunk();
@@ -54,6 +57,15 @@ public:
     return removeBlock(glm::ivec3(x, y, z));
   }
   void removeBlock(glm::ivec3 position);
+
+  bool needRender(camera &cam);
+
+  inline void
+  registerInstanceBuffer(std::vector<VkDescriptorBufferInfo> &instanceBuffers) {
+    this->instanceBufferIndex = instanceBuffers.size();
+    instanceBuffers.push_back(descriptorBufferInfo());
+  }
+  inline uint32_t getInstanceBufferIndex() { return instanceBufferIndex; }
 
   inline void initializeChunk(uint32_t textureIndex) {
     int64_t x = initializeChunkSize.x, y = initializeChunkSize.y,
@@ -91,15 +103,15 @@ public:
   inline void updateChunkBuffer() {
     if (!altered)
       return;
-    instanceBuffer.TransferData(getInstances().data(),
-                                sizeof(instance) * chunkSize.x * chunkSize.y *
-                                    chunkSize.z);
+    instanceBuffer->TransferData(getInstances().data(),
+                                 sizeof(instance) * chunkSize.x * chunkSize.y *
+                                     chunkSize.z);
     altered = false;
   }
 
   inline VkDescriptorBufferInfo descriptorBufferInfo() {
     return VkDescriptorBufferInfo{
-        .buffer = instanceBuffer,
+        .buffer = *instanceBuffer,
         .offset = 0,
         .range = VK_WHOLE_SIZE,
     };

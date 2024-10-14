@@ -24,15 +24,17 @@ layout(set = 0, binding = 2, std430) buffer StorageBuffer {
     Instance instances[];
 } storageBuffer[4096];
 
+layout(push_constant) uniform PushConstants {
+  uint storageBufferIndex;
+} pc;
+
 void main() { // HACK: 4096 -> src/Models/chunk.cpp:chunkSize
-    int storageBufferIndex = gl_InstanceIndex / 4096;
-    int instanceIndex = gl_InstanceIndex % 4096;
-    if(!storageBuffer[storageBufferIndex].instances[instanceIndex].isValid) {
+    if(!storageBuffer[pc.storageBufferIndex].instances[gl_InstanceIndex].isValid) {
         o_IsValid = 1;
         return;
     }
-    gl_Position = mvp.projection * mvp.view * storageBuffer[storageBufferIndex].instances[instanceIndex].model * vec4(i_Position, 1.0);
-    o_TextureIndex = storageBuffer[storageBufferIndex].instances[instanceIndex].textureIndex;
+    gl_Position = mvp.projection * mvp.view * storageBuffer[pc.storageBufferIndex].instances[gl_InstanceIndex].model * vec4(i_Position, 1.0);
+    o_TextureIndex = storageBuffer[pc.storageBufferIndex].instances[gl_InstanceIndex].textureIndex;
     o_TexCoord = i_TexCoord;
     o_IsValid = 0;
 }

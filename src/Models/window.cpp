@@ -53,18 +53,22 @@ struct alignas(16) MVP {
   glm::mat4 projection;
 };
 
-struct pushConstant_outline {
+struct pushConstant_3dVert {
+  uint32_t storageBufferIndex;
+};
+
+struct pushConstant_outlineVert {
   glm::mat4 aimingBlockModel;
   glm::vec4 colorRGBA;
 };
 
-struct pushConstant_cursor {
+struct pushConstant_cursorComp {
   VkExtent2D imageExtent;
   VkExtent2D maskExtentMultiplied;
   uint32_t cursorScale;
 };
 
-struct pushConstant_skybox {
+struct pushConstant_skyboxVert {
   uint32_t facing;
 };
 
@@ -97,6 +101,8 @@ bool window::initialize() {
 
   glfwGetWindowPos(glfwWindow, &currentPosition.x, &currentPosition.y);
   currentSize = defaultSize;
+  camera::Singleton().aspectRatio =
+      float(currentSize.width) / float(currentSize.height);
 #ifdef _WIN32
   graphicsBase::Base().AddInstanceExtension(VK_KHR_SURFACE_EXTENSION_NAME);
   graphicsBase::Base().AddInstanceExtension(
@@ -740,6 +746,12 @@ void window::run() {
                      camera::Singleton().position.z,
                      camera::Singleton().front.x, camera::Singleton().front.y,
                      camera::Singleton().front.z);
+              printf("[ window ] INFO: camera frustum planes: \n");
+              auto frustum = camera::Singleton().frustumPlanes();
+              for (int i = 0; i < 6; i++) {
+                printf("FrustumPlane[%d]: %f, %f, %f, %f\n", i, frustum[i].x,
+                       frustum[i].y, frustum[i].z, frustum[i].w);
+              }
 
             } else if (glfwGetKey(glfwWindow, GLFW_KEY_P) == GLFW_RELEASE &&
                        pressed == true) {
@@ -770,6 +782,8 @@ void window::run() {
                                              int height) {
       class window *self = (class window *)glfwGetWindowUserPointer(window);
       self->currentSize = {uint32_t(width), uint32_t(height)};
+      camera::Singleton().aspectRatio = float(width) / float(height);
+
       graphic::Singleton().WaitIdle();
       // VK_ERROR_OUT_OF_DATE_KHR would handle this
       // graphic::Singleton().RecreateSwapchain();
@@ -1100,32 +1114,37 @@ void window::run() {
     }
   }
 
-  VkPushConstantRange pushConstantRange_main = {
+  VkPushConstantRange pushConstantRange_cube = {
       .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
       .offset = 0,
-      .size = sizeof(pushConstant_outline),
+      .size = sizeof(pushConstant_3dVert),
+  };
+  VkPushConstantRange pushConstantRange_outline = {
+      .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+      .offset = 0,
+      .size = sizeof(pushConstant_outlineVert),
   };
   VkPushConstantRange pushConstantRange_cursor = {
       .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
       .offset = 0,
-      .size = sizeof(pushConstant_cursor),
+      .size = sizeof(pushConstant_cursorComp),
   };
   VkPushConstantRange pushConstantRange_skybox = {
       .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
       .offset = 0,
-      .size = sizeof(pushConstant_skybox),
+      .size = sizeof(pushConstant_skyboxVert),
   };
 
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_cube = {
       .setLayoutCount = 1,
       .pSetLayouts = descSetLayout_mainRender.Address(),
-      .pushConstantRangeCount = 0,
-  };
+      .pushConstantRangeCount = 1,
+      .pPushConstantRanges = &pushConstantRange_cube};
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_outline = {
       .setLayoutCount = 1,
       .pSetLayouts = descSetLayout_mainRender.Address(),
       .pushConstantRangeCount = 1,
-      .pPushConstantRanges = &pushConstantRange_main,
+      .pPushConstantRanges = &pushConstantRange_outline,
   };
   VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo_cursor = {
       .setLayoutCount = 1,
@@ -1325,8 +1344,8 @@ void window::run() {
 
     // HACK: make this lazy
     std::vector<VkDescriptorBufferInfo> storageBufferInfos;
-    for (auto &chunk : pWorldInstance->chunks) {
-      storageBufferInfos.push_back(chunk.second->descriptorBufferInfo());
+    for (auto &pair : pWorldInstance->chunks) {
+      pair.second->registerInstanceBuffer(storageBufferInfos);
     }
     VkDescriptorBufferInfo uniformBufferInfo_MVP = {
         .buffer = ubo_mvp,
@@ -1352,15 +1371,13 @@ void window::run() {
       model = glm::scale(model, glm::vec3(50.f));
       mvp.model = model;
       mvp.view = camera::Singleton().getViewMatrix();
-      mvp.projection = camera::Singleton().getProjectionMatrix(
-          currentSize.width, currentSize.height);
+      mvp.projection = camera::Singleton().getProjectionMatrix();
     }
 
     aimingEntity = rayIntersection(camera::Singleton().position,
                                    camera::Singleton().front, 5.0f, &facing);
 
     // TransferData
-    cubeVerticesBuffer.TransferData(cubeVertices, sizeof cubeVertices);
     ubo_mvp.TransferData(&mvp, sizeof(MVP));
 
     std::vector<VkDescriptorImageInfo> imageInfos(
@@ -1414,7 +1431,7 @@ void window::run() {
           VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT,
           inheritanceInfo_subpass0);
       if (aimingEntity != nullptr) {
-        struct pushConstant_outline push = {
+        struct pushConstant_outlineVert push = {
             .aimingBlockModel = glm::translate(
                 glm::mat4(1.f), glm::vec3(aimingEntity->position)),
             .colorRGBA = {0.f, 0.f, 0.f, 1.f},
@@ -1432,7 +1449,7 @@ void window::run() {
                              VK_INDEX_TYPE_UINT16);
         vkCmdPushConstants(outlineCommandBuffer, outlinePipelineLayout,
                            VK_SHADER_STAGE_VERTEX_BIT, 0,
-                           sizeof(pushConstant_outline), &push);
+                           sizeof(pushConstant_outlineVert), &push);
         vkCmdDrawIndexed(outlineCommandBuffer, 48, 1, 0, 0, 0);
       }
       outlineCommandBuffer.End();
@@ -1451,10 +1468,35 @@ void window::run() {
         vkCmdBindDescriptorSets(
             cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
             cubePipelineLayout, 0, 1, descSet_main.Address(), 0, nullptr);
-        vkCmdDrawIndexed(cubeCommandBuffer, 36,
-                         chunk::chunkSize.x * chunk::chunkSize.y *
-                             chunk::chunkSize.z * pWorldInstance->chunkCount(),
-                         0, 0, 0);
+        for (auto &pair : pWorldInstance->chunks) {
+          glm::vec<3, int> location = pair.first;
+          std::unique_ptr<chunk> &chunk = pair.second;
+          if (!pair.second->needRender(camera::Singleton())) {
+            continue;
+          }
+          struct pushConstant_3dVert push = {
+              .storageBufferIndex = pair.second->getInstanceBufferIndex(),
+          };
+          vkCmdPushConstants(cubeCommandBuffer, cubePipelineLayout,
+                             VK_SHADER_STAGE_VERTEX_BIT, 0,
+                             sizeof(pushConstant_3dVert), &push);
+          vkCmdDrawIndexed(cubeCommandBuffer, 36,
+                           chunk::chunkSize.x * chunk::chunkSize.y *
+                               chunk::chunkSize.z,
+                           0, 0, 0);
+        }
+        // for (uint i = 0; i < pWorldInstance->chunkCount(); i++) {
+        //   struct pushConstant_3dVert push = {
+        //       .storageBufferIndex = i,
+        //   };
+        //   vkCmdPushConstants(cubeCommandBuffer, cubePipelineLayout,
+        //                      VK_SHADER_STAGE_VERTEX_BIT, 0,
+        //                      sizeof(pushConstant_3dVert), &push);
+        //   vkCmdDrawIndexed(cubeCommandBuffer, 36,
+        //                    chunk::chunkSize.x * chunk::chunkSize.y *
+        //                        chunk::chunkSize.z,
+        //                    0, 0, 0);
+        // }
         cubeCommandBuffer.End();
       }
 
@@ -1472,10 +1514,10 @@ void window::run() {
             skyboxCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
             skyboxPipelineLayout, 0, 1, descSet_skybox.Address(), 0, nullptr);
         for (uint32_t i = 0; i < 6; i++) {
-          struct pushConstant_skybox push = {.facing = i};
+          struct pushConstant_skyboxVert push = {.facing = i};
           vkCmdPushConstants(skyboxCommandBuffer, skyboxPipelineLayout,
                              VK_SHADER_STAGE_FRAGMENT_BIT, 0,
-                             sizeof(pushConstant_skybox), &push);
+                             sizeof(pushConstant_skyboxVert), &push);
 
           vkCmdDrawIndexed(skyboxCommandBuffer, 6, 1, i * 6, 0, 0);
         }
@@ -1503,7 +1545,7 @@ void window::run() {
     }
 
     { // post process
-      struct pushConstant_cursor push = {
+      struct pushConstant_cursorComp push = {
           .imageExtent = graphic::Singleton().SwapchainCreateInfo().imageExtent,
           .maskExtentMultiplied = cursor.Extent(),
           .cursorScale = 2,
@@ -1520,7 +1562,7 @@ void window::run() {
           cursorPipelineLayout, 0, 1, descSet_cursor.Address(), 0, nullptr);
       vkCmdPushConstants(postProcessComputeBuffer, cursorPipelineLayout,
                          VK_SHADER_STAGE_COMPUTE_BIT, 0,
-                         sizeof(pushConstant_cursor), &push);
+                         sizeof(pushConstant_cursorComp), &push);
 
       VkImageMemoryBarrier barrier = {
           .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,

@@ -12,6 +12,7 @@ public:
   storageBuffer(VkDeviceSize size, VkBufferUsageFlags otherUsages = 0)
       : deviceLocalBuffer(size,
                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | otherUsages) {}
+  storageBuffer(const storageBuffer &) = delete;
   // Non-const Function
   void Create(VkDeviceSize size, VkBufferUsageFlags otherUsages = 0) {
     deviceLocalBuffer::Create(size,
