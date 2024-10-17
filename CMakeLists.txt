@@ -39,6 +39,7 @@ set(SOURCES
     src/Vulkan/imageView.cpp
     src/Vulkan/pipeline.cpp
     src/Vulkan/pipelineLayout.cpp
+    src/Vulkan/queryPool.cpp
     src/Vulkan/renderPass.cpp
     src/Vulkan/sampler.cpp
     src/Vulkan/semaphore.cpp

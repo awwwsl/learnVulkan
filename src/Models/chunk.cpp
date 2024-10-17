@@ -4,9 +4,9 @@
 static uint32_t instanceBufferIndex;
 
 chunk::chunk(glm::ivec3 chunkPosition) : chunkPosition(chunkPosition) {
-  blocks = new block *[chunkSize.x * chunkSize.y * chunkSize.z];
+  instanceBlocks = new block *[chunkSize.x * chunkSize.y * chunkSize.z];
   for (int32_t i = 0; i < chunkSize.x * chunkSize.y * chunkSize.z; i++) {
-    blocks[i] = nullptr; // HACK: could optimize
+    instanceBlocks[i] = nullptr; // HACK: could optimize
   }
   this->instanceBuffer = new vulkanWrapper::storageBuffer(
       sizeof(instance) * chunkSize.x * chunkSize.y * chunkSize.z);
@@ -21,11 +21,11 @@ chunk::~chunk() {
     instanceBuffer->~storageBuffer();
   }
   for (int64_t i = 0; i < chunkSize.x * chunkSize.y * chunkSize.z; i++) {
-    if (blocks[i] != nullptr) {
-      delete blocks[i];
+    if (instanceBlocks[i] != nullptr) {
+      delete instanceBlocks[i];
     }
   }
-  delete[] blocks;
+  delete[] instanceBlocks;
 #ifndef NDEBUG
   printf("[ chunk ] DEBUG: chunk destroyed at (%d, %d, %d,)\n", chunkPosition.x,
          chunkPosition.y, chunkPosition.z);
@@ -42,8 +42,8 @@ block *chunk::getBlock(glm::ivec3 position) {
 #endif
     return nullptr;
   }
-  return blocks[position.x * chunkSize.y * chunkSize.z +
-                position.y * chunkSize.z + position.z];
+  return instanceBlocks[position.x * chunkSize.y * chunkSize.z +
+                        position.y * chunkSize.z + position.z];
 }
 
 void chunk::setBlock(glm::ivec3 position, block *e) {
@@ -55,23 +55,21 @@ void chunk::setBlock(glm::ivec3 position, block *e) {
 #endif
     return;
   }
-  if (blocks[position.x * chunkSize.y * chunkSize.z + position.y * chunkSize.z +
-             position.z] != nullptr) {
-    delete blocks[position.x * chunkSize.y * chunkSize.z +
-                  position.y * chunkSize.z + position.z];
+  if (instanceBlocks[position.x * chunkSize.y * chunkSize.z +
+                     position.y * chunkSize.z + position.z] != nullptr) {
+    delete instanceBlocks[position.x * chunkSize.y * chunkSize.z +
+                          position.y * chunkSize.z + position.z];
     blockCount--;
   }
-  blocks[position.x * chunkSize.y * chunkSize.z + position.y * chunkSize.z +
-         position.z] = e;
+  instanceBlocks[position.x * chunkSize.y * chunkSize.z +
+                 position.y * chunkSize.z + position.z] = e;
 #ifndef NDEBUG
   printf("[ chunk ] DEBUG: setBlock at localPosition(%d, %d, %d) chunk(%d, %d, "
          "%d)\n",
          position.x, position.y, position.z, chunkPosition.x, chunkPosition.y,
          chunkPosition.z);
 #endif
-  if (e != nullptr) {
-    blockCount++;
-  }
+
   altered = true;
 }
 
@@ -84,17 +82,17 @@ void chunk::removeBlock(glm::ivec3 position) {
 #endif
     return;
   }
-  if (blocks[position.x * chunkSize.y * chunkSize.z + position.y * chunkSize.z +
-             position.z] == nullptr) {
+  if (instanceBlocks[position.x * chunkSize.y * chunkSize.z +
+                     position.y * chunkSize.z + position.z] == nullptr) {
 #ifndef NDEBUG
     printf("[ chunk ] ERROR: removeBlock(position) no block at there\n");
 #endif
     return;
   }
-  delete blocks[position.x * chunkSize.y * chunkSize.z +
-                position.y * chunkSize.z + position.z];
-  blocks[position.x * chunkSize.y * chunkSize.z + position.y * chunkSize.z +
-         position.z] = nullptr;
+  delete instanceBlocks[position.x * chunkSize.y * chunkSize.z +
+                        position.y * chunkSize.z + position.z];
+  instanceBlocks[position.x * chunkSize.y * chunkSize.z +
+                 position.y * chunkSize.z + position.z] = nullptr;
   blockCount--;
   altered = true;
 }
@@ -138,6 +136,8 @@ bool NotInFrustum(glm::ivec3 chunkPosition, camera &cam) {
   return false;
 }
 bool chunk::needRender(camera &cam) {
+  if (!renderEnabled)
+    return false;
   // if chunk is too far
   if (chunkPosition.x * chunkSize.x + chunkSize.x <
           cam.position.x - cam.farPlane ||

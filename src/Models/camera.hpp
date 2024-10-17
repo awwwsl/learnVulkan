@@ -28,8 +28,8 @@ public:
 
   float aspectRatio;
 
-  // static const constexpr glm::vec3 defaultPosition = {0.0f, 0.0f, 0.0f};
-  static const constexpr glm::vec3 defaultPosition = {-48.0f, -3.0f, -48.0f};
+  static const constexpr glm::vec3 defaultPosition = {0.0f, 0.0f, 0.0f};
+  // static const constexpr glm::vec3 defaultPosition = {-48.0f, -3.0f, -48.0f};
 
   static const constexpr glm::vec3 defaultFront = {0.0f, 0.0f, -1.0f};
   static const constexpr glm::vec3 defaultUp = {0.0f, 1.0f, 0.0f};

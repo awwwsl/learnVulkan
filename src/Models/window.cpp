@@ -628,6 +628,7 @@ void window::run() {
     static const constexpr int callbackInterval = 5;
     updatePerPeriod(
         std::chrono::milliseconds(callbackInterval), [this](int, double) {
+          bool viewChanged = false;
           bool windowSpeeding =
               glfwGetKey(glfwWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS;
           bool movementSpeeding =
@@ -670,29 +671,35 @@ void window::run() {
             camera::Singleton().horizentalForward(
                 .05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
             // printf("W\n");
+            viewChanged = true;
           }
           if (glfwGetKey(glfwWindow, GLFW_KEY_S) == GLFW_PRESS) {
             camera::Singleton().horizentalForward(
                 -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
             // printf("S\n");
+            viewChanged = true;
           }
           if (glfwGetKey(glfwWindow, GLFW_KEY_A) == GLFW_PRESS) {
             camera::Singleton().horizentalRightward(
                 -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
             // printf("A\n");
+            viewChanged = true;
           }
           if (glfwGetKey(glfwWindow, GLFW_KEY_D) == GLFW_PRESS) {
             camera::Singleton().horizentalRightward(
                 .05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
             // printf("D\n");
+            viewChanged = true;
           }
           if (glfwGetKey(glfwWindow, GLFW_KEY_SPACE) == GLFW_PRESS) {
             camera::Singleton().verticalUpward(
                 .05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+            viewChanged = true;
           }
           if (glfwGetKey(glfwWindow, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
             camera::Singleton().verticalUpward(
                 -.05f * (movementSpeeding ? 5 : 1) * callbackInterval / 20.f);
+            viewChanged = true;
           }
           if (glfwGetKey(glfwWindow, GLFW_KEY_1) == GLFW_PRESS) {
             holdingItem = 0;
@@ -729,10 +736,12 @@ void window::run() {
               pressed = true;
               fov = camera::Singleton().fov;
               camera::Singleton().fov = 30.f;
+              viewChanged = true;
             } else if (glfwGetKey(glfwWindow, GLFW_KEY_C) == GLFW_RELEASE &&
                        pressed == true) {
               pressed = false;
               camera::Singleton().fov = fov;
+              viewChanged = true;
             }
           }
           {
@@ -756,6 +765,9 @@ void window::run() {
             } else if (glfwGetKey(glfwWindow, GLFW_KEY_P) == GLFW_RELEASE &&
                        pressed == true) {
               pressed = false;
+            }
+            if (viewChanged) {
+              needOcclusionQuery = true;
             }
           }
         });
@@ -783,6 +795,7 @@ void window::run() {
       class window *self = (class window *)glfwGetWindowUserPointer(window);
       self->currentSize = {uint32_t(width), uint32_t(height)};
       camera::Singleton().aspectRatio = float(width) / float(height);
+      self->needOcclusionQuery = true;
 
       graphic::Singleton().WaitIdle();
       // VK_ERROR_OUT_OF_DATE_KHR would handle this
@@ -836,6 +849,7 @@ void window::run() {
               camera::Singleton().yaw += 360.0f;
             camera::Singleton().updateCameraVectors();
           }
+          self->needOcclusionQuery = true;
         });
 
     glfwSetMouseButtonCallback(glfwWindow, [](GLFWwindow *window, int button,
@@ -910,6 +924,7 @@ void window::run() {
 #endif
         self->pWorldInstance->removeBlock(aimingEntity->position);
       }
+      self->needOcclusionQuery = true;
     });
 
     glfwSetScrollCallback(
@@ -920,6 +935,7 @@ void window::run() {
             camera::Singleton().fov = 30.0f;
           if (camera::Singleton().fov > 120.0f)
             camera::Singleton().fov = 120.0f;
+          self->needOcclusionQuery = true;
         });
   };
 
@@ -1334,6 +1350,18 @@ void window::run() {
 
   fence.Reset();
 
+  vulkanWrapper::queryPool chunkOcclusionCullingQueryPool;
+  {
+    auto createInfo = VkQueryPoolCreateInfo{
+        .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
+        .flags = 0,
+        .queryType = VK_QUERY_TYPE_OCCLUSION,
+        .queryCount = 4096,
+        .pipelineStatistics = 0,
+    };
+    chunkOcclusionCullingQueryPool.Create(createInfo);
+  }
+
   uint32_t textureSelection = 0;
   while (!glfwWindowShouldClose(glfwWindow)) {
     while (glfwGetWindowAttrib(glfwWindow, GLFW_ICONIFIED)) {
@@ -1364,6 +1392,11 @@ void window::run() {
     uint32_t currentFramebufferIndex = graphic::Singleton().CurrentImageIndex();
 
     // calculate data
+    if (needOcclusionQuery) {
+      for (auto &pair : pWorldInstance->chunks) {
+        pair.second->renderEnabled = true;
+      }
+    }
     MVP mvp;
     {
       glm::mat4 model = glm::mat4(1.f);
@@ -1425,6 +1458,7 @@ void window::run() {
     // };
 
     // main render
+    uint64_t occlusionCullingQueryIndex = 0;
     {
       VkDeviceSize offset = 0;
       outlineCommandBuffer.Begin(
@@ -1468,9 +1502,11 @@ void window::run() {
         vkCmdBindDescriptorSets(
             cubeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
             cubePipelineLayout, 0, 1, descSet_main.Address(), 0, nullptr);
+
         for (auto &pair : pWorldInstance->chunks) {
           glm::vec<3, int> location = pair.first;
           std::unique_ptr<chunk> &chunk = pair.second;
+          chunk->occlusionQueryIndex = UINT64_MAX;
           if (!pair.second->needRender(camera::Singleton())) {
             continue;
           }
@@ -1480,10 +1516,19 @@ void window::run() {
           vkCmdPushConstants(cubeCommandBuffer, cubePipelineLayout,
                              VK_SHADER_STAGE_VERTEX_BIT, 0,
                              sizeof(pushConstant_3dVert), &push);
+
+          vkCmdBeginQuery(cubeCommandBuffer, chunkOcclusionCullingQueryPool,
+                          occlusionCullingQueryIndex, 0);
+          chunk->occlusionQueryIndex = occlusionCullingQueryIndex;
+
           vkCmdDrawIndexed(cubeCommandBuffer, 36,
                            chunk::chunkSize.x * chunk::chunkSize.y *
                                chunk::chunkSize.z,
                            0, 0, 0);
+          vkCmdEndQuery(cubeCommandBuffer, chunkOcclusionCullingQueryPool,
+                        occlusionCullingQueryIndex);
+
+          occlusionCullingQueryIndex++;
         }
         // for (uint i = 0; i < pWorldInstance->chunkCount(); i++) {
         //   struct pushConstant_3dVert push = {
@@ -1526,6 +1571,9 @@ void window::run() {
 
       { // primary
         primaryCommandBuffer.Begin();
+        vkCmdResetQueryPool(primaryCommandBuffer,
+                            chunkOcclusionCullingQueryPool, 0,
+                            pWorldInstance->chunks.size());
         renderPass.CmdBegin(
             primaryCommandBuffer, framebuffers[currentFramebufferIndex],
             {{}, {framebuffers[currentFramebufferIndex].Size()}}, clearValues,
@@ -1606,6 +1654,28 @@ void window::run() {
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
     fence.WaitAndReset();
+    if (occlusionCullingQueryIndex != 0) {
+      std::vector<uint64_t> results =
+          std::vector<uint64_t>(occlusionCullingQueryIndex);
+      auto vkResult = vkGetQueryPoolResults(
+          graphic::Singleton().Device(), chunkOcclusionCullingQueryPool, 0,
+          occlusionCullingQueryIndex,
+          sizeof(uint64_t) * occlusionCullingQueryIndex, results.data(),
+          sizeof(uint64_t), VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
+
+      for (auto &pair : pWorldInstance->chunks) {
+        auto &chunk = pair.second;
+        if (chunk->occlusionQueryIndex == UINT64_MAX) {
+          continue;
+        }
+        if (vkResult == VK_SUCCESS) {
+          chunk->renderEnabled = results[chunk->occlusionQueryIndex] > 0;
+        } else {
+          chunk->renderEnabled = true;
+        }
+      }
+    }
+    needOcclusionQuery = false;
 
     VkPipelineStageFlags pipelineStageFlag =
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;

@@ -31,6 +31,8 @@ private:
 
   bool iconified = false;
 
+  bool needOcclusionQuery = false;
+
   block *rayIntersection(const glm::vec3 start, const glm::vec3 direction,
                          const float maxDistance = 5.0f, int *facing = nullptr);
 

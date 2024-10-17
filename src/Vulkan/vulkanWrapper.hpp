@@ -26,6 +26,7 @@
 #include "indexBuffer.hpp"
 #include "pipeline.hpp"
 #include "pipelineLayout.hpp"
+#include "queryPool.hpp"
 #include "renderPass.hpp"
 #include "sampler.hpp"
 #include "semaphore.hpp"

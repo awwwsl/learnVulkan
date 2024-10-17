@@ -10,7 +10,6 @@ vulkanWrapper::queryPool::queryPool(queryPool &&other) noexcept { MoveHandle; }
 vulkanWrapper::queryPool::~queryPool() {
   DestroyHandleBy(vkDestroyQueryPool, "queryPool");
 }
-
 VkResultThrowable
 vulkanWrapper::queryPool::Create(VkQueryPoolCreateInfo &createInfo) {
   createInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;

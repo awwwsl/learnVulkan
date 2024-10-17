@@ -25,12 +25,15 @@ class chunk {
 
   bool altered = true;
 
-  block **blocks;
+  block **instanceBlocks;
   uint64_t blockCount = 0;
 
 public:
   static const constexpr glm::ivec3 chunkSize = {16, 16, 16};
   const glm::ivec3 chunkPosition;
+
+  bool renderEnabled = true;
+  uint64_t occlusionQueryIndex;
 
   uint32_t instanceBufferIndex;
 
@@ -90,10 +93,11 @@ public:
           int64_t index =
               ix * chunkSize.y * chunkSize.z + iy * chunkSize.z + iz;
           struct instance inst =
-              blocks[index] == nullptr
+              instanceBlocks[index] == nullptr
                   ? instance{.isValid = false}
-                  : instance{.model = blocks[index]->getModelMatrix(),
-                             .textureIndex = blocks[index]->textureIndex,
+                  : instance{.model = instanceBlocks[index]->getModelMatrix(),
+                             .textureIndex =
+                                 instanceBlocks[index]->textureIndex,
                              .isValid = true};
           instances.push_back(inst);
         };
